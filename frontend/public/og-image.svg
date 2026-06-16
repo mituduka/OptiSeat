@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#1A1A1C"/>
+  <!-- Grid pattern background -->
+  <g opacity="0.08" stroke="#B5DCD8" stroke-width="1" fill="none">
+    <line x1="100" y1="0" x2="100" y2="630"/>
+    <line x1="200" y1="0" x2="200" y2="630"/>
+    <line x1="300" y1="0" x2="300" y2="630"/>
+    <line x1="400" y1="0" x2="400" y2="630"/>
+    <line x1="500" y1="0" x2="500" y2="630"/>
+    <line x1="600" y1="0" x2="600" y2="630"/>
+    <line x1="700" y1="0" x2="700" y2="630"/>
+    <line x1="800" y1="0" x2="800" y2="630"/>
+    <line x1="900" y1="0" x2="900" y2="630"/>
+    <line x1="1000" y1="0" x2="1000" y2="630"/>
+    <line x1="1100" y1="0" x2="1100" y2="630"/>
+    <line x1="0" y1="100" x2="1200" y2="100"/>
+    <line x1="0" y1="200" x2="1200" y2="200"/>
+    <line x1="0" y1="300" x2="1200" y2="300"/>
+    <line x1="0" y1="400" x2="1200" y2="400"/>
+    <line x1="0" y1="500" x2="1200" y2="500"/>
+  </g>
+  <!-- Seat icon grid -->
+  <g opacity="0.15">
+    <rect x="920" y="120" width="60" height="50" rx="8" fill="#2DD4BF"/>
+    <rect x="990" y="120" width="60" height="50" rx="8" fill="#2DD4BF"/>
+    <rect x="1060" y="120" width="60" height="50" rx="8" fill="#2DD4BF"/>
+    <rect x="920" y="180" width="60" height="50" rx="8" fill="#2DD4BF"/>
+    <rect x="990" y="180" width="60" height="50" rx="8" fill="#f472b6"/>
+    <rect x="1060" y="180" width="60" height="50" rx="8" fill="#2DD4BF"/>
+    <rect x="920" y="240" width="60" height="50" rx="8" fill="#2DD4BF"/>
+    <rect x="990" y="240" width="60" height="50" rx="8" fill="#2DD4BF"/>
+    <rect x="1060" y="240" width="60" height="50" rx="8" fill="#2DD4BF"/>
+  </g>
+  <!-- Main title -->
+  <text x="100" y="280" font-family="Noto Sans CJK JP, sans-serif" font-size="96" font-weight="800" fill="#F8FAFA" letter-spacing="-2">OptiSeat</text>
+  <!-- Accent line -->
+  <rect x="100" y="310" width="200" height="6" rx="3" fill="#2DD4BF"/>
+  <!-- Subtitle -->
+  <text x="100" y="400" font-family="Noto Sans CJK JP, sans-serif" font-size="48" font-weight="400" fill="#B5DCD8">席替えアプリ</text>
+  <!-- Description -->
+  <text x="100" y="480" font-family="Noto Sans CJK JP, sans-serif" font-size="28" fill="#7C9D98">教員のための高度な席替え支援ツール</text>
+  <!-- URL -->
+  <text x="100" y="570" font-family="Noto Sans CJK JP, sans-serif" font-size="24" fill="#5E807B">optiseat.pages.dev</text>
+</svg>

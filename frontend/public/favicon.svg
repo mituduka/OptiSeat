@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#1A1A1C"/>
+  <!-- 2x2 seat grid (9x9 squares, margin 5, gap 4 — 上下左右対称) -->
+  <rect x="5" y="5" width="9" height="9" rx="2" fill="#2DD4BF"/>
+  <rect x="18" y="5" width="9" height="9" rx="2" fill="#2DD4BF"/>
+  <rect x="5" y="18" width="9" height="9" rx="2" fill="#2DD4BF"/>
+  <rect x="18" y="18" width="9" height="9" rx="2" fill="#f472b6"/>
+</svg>

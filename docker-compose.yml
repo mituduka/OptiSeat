@@ -1,0 +1,59 @@
+# OptiSeat 本番用 Docker Compose
+#
+# 使い方:
+#   docker compose up -d --build
+#
+# 最適化ビルドで配信します（フロント = next build → next start、バックエンド = uvicorn）。
+# 開発（ホットリロード）は docker-compose.dev.yml を使ってください:
+#   docker compose -f docker-compose.dev.yml up
+#
+# ポート・ドメインは .env で上書きできます（詳細は .env.example 参照）:
+#   FRONTEND_PORT=8080
+#   BACKEND_PORT=8081
+#   NEXT_PUBLIC_API_URL=https://api.example.com
+#   CORS_ORIGINS=https://seat.example.com
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    working_dir: /workspace
+    command: sh -c "uvicorn backend.api.main:app --host 0.0.0.0 --port 8000"
+    volumes:
+      - .:/workspace
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - path: backend/.env
+        required: false
+    environment:
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:${FRONTEND_PORT:-3000}}"
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    working_dir: /workspace/frontend
+    # NEXT_PUBLIC_API_URL はビルド時にクライアントへ焼き込まれるため、build → start を一連で実行する
+    command: sh -c "npm ci && npm run build && npm run start -- -H 0.0.0.0 -p 3000"
+    volumes:
+      - .:/workspace
+      - frontend_node_modules:/workspace/frontend/node_modules
+      - frontend_next:/workspace/frontend/.next
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:${BACKEND_PORT:-8000}}"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  frontend_node_modules:
+  frontend_next:

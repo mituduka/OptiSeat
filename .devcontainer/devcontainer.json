@@ -1,0 +1,51 @@
+{
+  "name": "OptiSeat Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+
+  // VS Code 拡張機能
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "ruff.lint.run": "onSave"
+      }
+    }
+  },
+
+  // コンテナ起動後に実行するコマンド
+  "postCreateCommand": "pip install --no-cache-dir -r /workspace/backend/requirements.txt",
+
+  // ポートフォワーディング
+  "forwardPorts": [
+    8000,  // FastAPI バックエンド
+    3000   // Next.js フロントエンド（Phase 3以降）
+  ],
+  "portsAttributes": {
+    "8000": { "label": "FastAPI Backend", "onAutoForward": "notify" },
+    "3000": { "label": "Next.js Frontend", "onAutoForward": "notify" }
+  },
+
+  // 開発時の機能設定
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  }
+}

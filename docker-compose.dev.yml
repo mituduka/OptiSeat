@@ -1,0 +1,55 @@
+# 開発用 Docker Compose（ホットリロード）
+#
+# 使い方:
+#   docker compose -f docker-compose.dev.yml up
+#
+# docker-compose.yml（本番）との違い:
+#   - フロントエンドは `next dev`（ホットリロード）
+#   - バックエンドは uvicorn を --reload 付きで起動
+#
+# ポートやドメインは .env で上書きできます（詳細は .env.example 参照）。
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    working_dir: /workspace
+    # 注: ${VAR} 形式は compose がホスト環境変数で先に補間してしまうため、
+    # コンテナ環境変数による切り替えはできない。開発専用ファイルなので直接指定する。
+    command: sh -c "uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - .:/workspace
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - path: backend/.env
+        required: false
+    environment:
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:${FRONTEND_PORT:-3000}}"
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    working_dir: /workspace/frontend
+    command: sh -c "npm install && npm run dev"
+    volumes:
+      - .:/workspace
+      # node_modules と .next はホストを汚さないよう named volume で管理
+      - frontend_node_modules:/workspace/frontend/node_modules
+      - frontend_next:/workspace/frontend/.next
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:${BACKEND_PORT:-8000}}"
+    depends_on:
+      - backend
+
+volumes:
+  frontend_node_modules:
+  frontend_next:

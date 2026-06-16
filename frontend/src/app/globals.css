@@ -1,0 +1,175 @@
+@import 'tailwindcss';
+
+/*
+  デザイントークン — デジタル庁デザインシステム（DADS）を参考にした配色・比率。
+  8px グリッドを基本単位とし、面は白、境界は --color-line、強調は --color-primary に統一する。
+*/
+@theme {
+  --font-sans: Noto Sans JP, Hiragino Sans, Meiryo, sans-serif;
+
+  /* ブランド（青竹ティール。白文字 5.5:1） */
+  --color-primary: #0f766e;
+  --color-primary-strong: #115e59; /* hover */
+  --color-primary-deep: #134e4a; /* active */
+  --color-primary-soft: #e6f4f2; /* 選択面 */
+  --color-primary-pale: #b5dcd8; /* 強調境界 */
+
+  /* テキスト */
+  --color-ink: #1a1a1c;
+  --color-ink-soft: #414143;
+  --color-ink-muted: #707074;
+  --color-ink-faint: #9d9da1;
+
+  /* 面・境界 */
+  --color-line: #d8d8db;
+  --color-line-soft: #e8e8eb;
+  --color-canvas: #f8f8fb;
+
+  /* サイドバー（プライマリの淡色ティント: 面 5% / 選択 13%） */
+  --color-sidebar: #f3f8f8;
+  --color-sidebar-active: #e0edec;
+
+  /*
+    セマンティックカラー（DADS 準拠）。色相は赤=エラー / 黄=警告 / 緑=サクセスを維持し、
+    本アプリのライトトーンに合わせて彩度を抑えた値。
+    無印 = 境界・アイコン用（白/soft 背景に 3:1 以上）、strong = テキスト用（soft 背景に 4.5:1 以上）
+  */
+  --color-error: #bf4040;
+  --color-error-strong: #9e2e2e;
+  --color-error-soft: #faf0f0;
+  --color-warning: #9e822e;
+  --color-warning-strong: #836a21;
+  --color-warning-soft: #f7f2e3;
+  --color-success: #439d73;
+  --color-success-strong: #307e59;
+  --color-success-soft: #eef6f3;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-line, currentcolor);
+  }
+
+  /*
+    フォーカスインジケータをサイト全体で統一する（DADS のコントラスト・一貫性要件）。
+    ブラウザ既定に依存せず、すべてのフォーカス可能要素で同じ見た目になる。
+  */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* 本文の基本行間（DADS 推奨 150〜160%）。text-* ユーティリティ指定時はそちらが優先される */
+  body {
+    line-height: 1.6;
+  }
+}
+
+@layer components {
+  /* 面（カード）: 白地 + 1px 境界 + 8px 角丸 */
+  .card {
+    @apply bg-white border border-line rounded-lg;
+  }
+
+  /* ボタン共通。サイズは .btn(40px) / .btn-sm(32px) の2段階に統一する */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 min-h-10 px-4 rounded-lg text-sm font-bold whitespace-nowrap cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary;
+  }
+  .btn-sm {
+    @apply min-h-8 px-3 text-xs;
+  }
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-strong active:bg-primary-deep;
+  }
+  .btn-secondary {
+    @apply bg-white text-primary border border-primary hover:bg-primary-soft;
+  }
+  .btn-quiet {
+    @apply bg-white text-ink-soft border border-line hover:bg-canvas;
+  }
+  .btn-danger {
+    @apply bg-white text-error border border-error hover:bg-error-soft;
+  }
+}
+
+:root {
+  /* 下部ナビ実高（BottomNav の h-14 = 3.5rem） */
+  --bottom-nav-h: 3.5rem;
+}
+
+html {
+  height: 100%;
+}
+
+html, body {
+  /* body の高さは Tailwind クラス（min-h-[100dvh] md:h-[100dvh]）に委譲する */
+  overscroll-behavior: none;
+  /* 日本語 Web フォントの線を細く滑らかに描画する */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  @apply text-ink bg-canvas;
+}
+
+@media (min-width: 768px) {
+  main {
+    /* スクロールバーの有無に関わらず領域を確保し、レイアウトのズレを防ぐ（PC のみ） */
+    scrollbar-gutter: stable;
+  }
+}
+
+/*
+ * メインコンテンツの safe-area padding。
+ * iOS Safari は overflow: scroll コンテナの padding-bottom / padding-right が
+ * スクロール時に無視される既知のバグがあるため、padding は scroll する <main>
+ * 自体ではなく内側の wrapper に持たせる。
+ * 横方向は max-width で中央寄せし、超ワイド画面でも行長と比率を保つ。
+ */
+.main-safe-padding {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-top: 1rem;
+  /* モバイルは固定下部ナビ分のスペースを確保し、コンテンツがナビ裏に隠れないようにする */
+  padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 1rem);
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+@media (min-width: 768px) {
+  .main-safe-padding {
+    padding-top: 2rem;
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+    padding-left: max(2rem, env(safe-area-inset-left));
+    padding-right: max(2rem, env(safe-area-inset-right));
+  }
+}
+
+@media print {
+  body {
+    background: white !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .main-safe-padding {
+    padding: 0 !important;
+    max-width: none;
+  }
+}

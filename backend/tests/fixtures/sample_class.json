@@ -1,0 +1,52 @@
+{
+  "_comment": "最小テストケース: 6名・2×3グリッド・2班構成",
+  "_layout": [
+    "     Col:1  Col:2  Col:3",
+    "Row:1  [1]    [2]    [3]   ← 前列（黒板側）",
+    "Row:2  [4]    [5]    [6]   ← 後列"
+  ],
+  "_groups": [
+    "班1: 座席 1,2,4,5（左2列の4席）",
+    "班2: 座席 3,6  （右1列の2席）"
+  ],
+  "students": [
+    {"id": 1, "gender": "male",   "tags": ["front_preferred"]},
+    {"id": 2, "gender": "female", "tags": []},
+    {"id": 3, "gender": "male",   "tags": []},
+    {"id": 4, "gender": "female", "tags": ["back_preferred"]},
+    {"id": 5, "gender": "male",   "tags": []},
+    {"id": 6, "gender": "female", "tags": []}
+  ],
+  "seats": [
+    {"id": 1, "row": 1, "col": 1},
+    {"id": 2, "row": 1, "col": 2},
+    {"id": 3, "row": 1, "col": 3},
+    {"id": 4, "row": 2, "col": 1},
+    {"id": 5, "row": 2, "col": 2},
+    {"id": 6, "row": 2, "col": 3}
+  ],
+  "classroom": {
+    "num_rows": 2,
+    "num_cols": 3,
+    "front_rows": [1],
+    "back_rows": [2]
+  },
+  "groups": [
+    {"group_id": 1, "seat_ids": [1, 2, 4, 5]},
+    {"group_id": 2, "seat_ids": [3, 6]}
+  ],
+  "constraints": {
+    "fixed": [],
+    "forbidden": [
+      {"student_id_a": 2, "student_id_b": 5}
+    ]
+  },
+  "prev_assign": [
+    {"student_id": 1, "seat_id": 1},
+    {"student_id": 2, "seat_id": 2},
+    {"student_id": 3, "seat_id": 3},
+    {"student_id": 4, "seat_id": 4},
+    {"student_id": 5, "seat_id": 5},
+    {"student_id": 6, "seat_id": 6}
+  ]
+}

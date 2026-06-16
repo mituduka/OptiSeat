@@ -1,0 +1,16 @@
+# ASP ソルバ
+clingo>=5.8.0
+clorm>=1.6.2
+
+# Web フレームワーク
+fastapi>=0.136.0
+uvicorn[standard]>=0.49.0
+pydantic>=2.13.0
+
+# テスト・開発ツール
+pytest>=9.0.0
+pytest-asyncio>=1.4.0
+httpx>=0.28.0
+
+# Linter / Formatter
+ruff>=0.15.0
