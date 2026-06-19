@@ -13,4 +13,4 @@ pytest-asyncio>=1.4.0
 httpx>=0.28.0
 
 # Linter / Formatter
-ruff>=0.15.0
+ruff>=0.15.18
