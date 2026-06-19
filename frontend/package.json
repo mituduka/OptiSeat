@@ -22,7 +22,7 @@
     "@types/fontkit": "^2.0.9",
     "fontkit": "^2.0.4",
     "lucide-react": "^1.21.0",
-    "next": "^16.2.7",
+    "next": "^16.2.9",
     "pdf-lib": "^1.17.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
