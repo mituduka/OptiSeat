@@ -6,6 +6,7 @@
 
 ASP（Answer Set Programming）ソルバ [clingo](https://github.com/potassco/clingo) を使った、学校教員のための席替え支援 Web アプリ。
 
+[![CI](https://github.com/mituduka/OptiSeat/actions/workflows/ci.yml/badge.svg)](https://github.com/mituduka/OptiSeat/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)

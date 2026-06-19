@@ -1,0 +1,20 @@
+"component: backend":
+  - changed-files:
+    - any-glob-to-any-file:
+      - backend/**
+
+"component: frontend":
+  - changed-files:
+    - any-glob-to-any-file:
+      - frontend/**
+
+"component: solver":
+  - changed-files:
+    - any-glob-to-any-file:
+      - backend/solver/**
+
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - "**/*.md"
+      - docs/**
