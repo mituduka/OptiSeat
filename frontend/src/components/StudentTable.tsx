@@ -17,7 +17,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Check } from 'lucide-react'
+import ConfirmButton from '@/components/ConfirmButton'
 import { useStore } from '@/lib/store'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import type { Gender, TagType, Student } from '@/types'
@@ -177,13 +178,17 @@ function SortableRow({
           >
             <Pencil size={16} />
           </button>
-          <button
-            onClick={() => onRemove(s.id)}
+          <ConfirmButton
+            onConfirm={() => onRemove(s.id)}
             aria-label={`${s.name} を削除`}
-            className="p-2 text-error hover:text-error-strong"
+            title="削除"
+            className="p-2 rounded"
+            idleClassName="text-error hover:text-error-strong"
+            confirmClassName="bg-error text-white hover:bg-error-strong"
+            confirmChildren={<Check size={16} />}
           >
             <Trash2 size={16} />
-          </button>
+          </ConfirmButton>
         </div>
       </div>
     )
@@ -295,12 +300,15 @@ function SortableRow({
         >
           編集
         </button>
-        <button
-          onClick={() => onRemove(s.id)}
-          className="text-error hover:text-error-strong text-sm px-2 py-1.5 ml-1"
+        <ConfirmButton
+          onConfirm={() => onRemove(s.id)}
+          confirmChildren="本当に削除？"
+          className="text-sm px-2 py-1.5 ml-1 rounded"
+          idleClassName="text-error hover:text-error-strong"
+          confirmClassName="bg-error text-white hover:bg-error-strong"
         >
           削除
-        </button>
+        </ConfirmButton>
       </td>
     </tr>
   )

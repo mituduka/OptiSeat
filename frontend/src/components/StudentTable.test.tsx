@@ -97,7 +97,7 @@ describe('StudentTable', () => {
     expect(useStore.getState().students[0].tags).toContain('front_preferred')
   })
 
-  it('削除ボタンを押すと該当行が削除される', async () => {
+  it('削除ボタンは2段階クリックで該当行を削除する', async () => {
     useStore.setState({
       students: [
         { id: 1, name: '山田 太郎', gender: 'male', tags: [] },
@@ -107,9 +107,15 @@ describe('StudentTable', () => {
     const user = userEvent.setup()
     render(<StudentTable />)
 
-    const deleteButtons = screen.getAllByRole('button', { name: '削除' })
-    await user.click(deleteButtons[0])
+    const deleteButton = screen.getAllByRole('button', { name: '削除' })[0]
 
+    // 1回目のクリックでは確認状態になるだけで削除されない
+    await user.click(deleteButton)
+    expect(useStore.getState().students).toHaveLength(2)
+    expect(deleteButton).toHaveTextContent('本当に削除？')
+
+    // 2回目のクリックで削除される
+    await user.click(deleteButton)
     expect(useStore.getState().students).toHaveLength(1)
   })
 
