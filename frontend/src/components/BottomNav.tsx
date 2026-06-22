@@ -13,9 +13,11 @@ export default function BottomNav() {
   return (
     <nav
       aria-label="モバイルナビゲーション"
-      className="md:hidden print:hidden fixed bottom-0 inset-x-0 z-30 flex bg-white text-ink border-t border-line"
+      className="md:hidden print:hidden shrink-0 flex bg-white text-ink border-t border-line"
       style={{
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        // 下端の固定白ダミー（layout.tsx, 高さ max(0.5rem, safe-area-bottom)）と同量を確保し、
+        // safe-area=0 の環境でも白ダミーがナビのラベルを覆わないようにする
+        paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
       }}
