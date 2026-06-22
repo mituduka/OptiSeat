@@ -164,6 +164,10 @@ body {
     background: white !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+    /* app-shell の h-dvh + overflow-hidden を印刷時は解除し、複数ページに渡る
+       内容が 1 ページ目でクリップされないようにする */
+    height: auto !important;
+    overflow: visible !important;
   }
   main {
     padding: 0 !important;
