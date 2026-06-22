@@ -13,7 +13,7 @@ export default function BottomNav() {
   return (
     <nav
       aria-label="モバイルナビゲーション"
-      className="md:hidden print:hidden fixed bottom-0 inset-x-0 z-30 flex bg-white text-ink border-t border-line"
+      className="md:hidden print:hidden shrink-0 flex bg-white text-ink border-t border-line"
       style={{
         paddingBottom: 'env(safe-area-inset-bottom)',
         paddingLeft: 'env(safe-area-inset-left)',

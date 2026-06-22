@@ -114,7 +114,7 @@ html {
 }
 
 html, body {
-  /* body の高さは Tailwind クラス（min-h-[100dvh] md:h-[100dvh]）に委譲する */
+  /* body の高さは Tailwind クラス（h-dvh + overflow-hidden の app-shell）に委譲する */
   overscroll-behavior: none;
   /* 日本語 Web フォントの線を細く滑らかに描画する */
   -webkit-font-smoothing: antialiased;
@@ -144,8 +144,9 @@ body {
   max-width: 1280px;
   margin-inline: auto;
   padding-top: 1rem;
-  /* モバイルは固定下部ナビ分のスペースを確保し、コンテンツがナビ裏に隠れないようにする */
-  padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 1rem);
+  /* 下部ナビ（BottomNav）は通常フローの flex 子要素として main の外にあり、safe-area-inset-bottom も
+     ナビ側で吸収するため、ここでは下端の余白のみを確保すればよい（ナビ高の二重確保をしない） */
+  padding-bottom: 1rem;
   padding-left: max(1rem, env(safe-area-inset-left));
   padding-right: max(1rem, env(safe-area-inset-right));
 }

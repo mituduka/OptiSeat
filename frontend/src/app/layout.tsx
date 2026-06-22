@@ -55,11 +55,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className="h-full">
-      <body className="flex flex-col md:flex-row min-h-dvh md:h-dvh md:overflow-hidden">
+      <body className="flex flex-col md:flex-row h-dvh overflow-hidden">
         <AppInit />
         <MobileHeader />
         <div className="print:hidden"><Sidebar /></div>
-        <main className="flex-1 relative md:min-h-0 md:overflow-y-auto">
+        <main className="flex-1 relative min-h-0 overflow-y-auto">
           <div className="main-safe-padding relative md:min-h-full">{children}</div>
         </main>
         <BottomNav />
@@ -74,6 +74,17 @@ export default function RootLayout({
           aria-hidden="true"
           className="md:hidden print:hidden fixed top-0 inset-x-0 z-60 bg-white pointer-events-none"
           style={{ height: 'max(0.5rem, env(safe-area-inset-top))' }}
+        />
+        {/*
+          同様に Safari は下部アドレスバーの色も下端付近の position:fixed 要素の背景色から決める。
+          BottomNav は app-shell 化で通常フロー（static）になり下端の固定白要素が無くなったため、
+          サイドバー backdrop（暗色）を開くとバーが暗くサンプリングされ、閉じても固定要素が無く
+          再サンプリングされない。上端と対になる固定白要素を最前面に常駐させ、常に白を保たせる。
+        */}
+        <div
+          aria-hidden="true"
+          className="md:hidden print:hidden fixed bottom-0 inset-x-0 z-60 bg-white pointer-events-none"
+          style={{ height: 'max(0.5rem, env(safe-area-inset-bottom))' }}
         />
       </body>
     </html>
