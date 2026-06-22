@@ -10,7 +10,9 @@ export default function MobileHeader() {
     <header
       className="md:hidden flex items-center gap-3 px-3 bg-white text-ink border-b border-line print:hidden shrink-0"
       style={{
-        paddingTop: 'env(safe-area-inset-top)',
+        // 上端の固定白ダミー（layout.tsx, 高さ max(0.5rem, safe-area-top)）と同量を確保し、
+        // safe-area=0 の環境でも白ダミーがヘッダー上部を覆わないようにする
+        paddingTop: 'max(0.5rem, env(safe-area-inset-top))',
         paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
         paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
       }}
