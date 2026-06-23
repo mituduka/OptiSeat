@@ -128,11 +128,11 @@ function SortableRow({
             ))}
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={onSaveEditing} className="btn btn-sm btn-primary">
-              保存
-            </button>
             <button onClick={onCancelEditing} className="btn btn-sm btn-quiet">
               キャンセル
+            </button>
+            <button onClick={onSaveEditing} className="btn btn-sm btn-primary">
+              保存
             </button>
           </div>
         </div>
@@ -184,7 +184,7 @@ function SortableRow({
             aria-label={`${s.name} を削除`}
             title="削除"
             className="p-2.5 rounded-lg transition-colors"
-            idleClassName="text-slate-500 hover:text-error-strong hover:bg-error-soft"
+            idleClassName="text-error hover:text-error-strong hover:bg-error-soft"
             confirmClassName="bg-error text-white hover:bg-error-strong"
             confirmChildren={<Check size={16} />}
           >
@@ -243,19 +243,15 @@ function SortableRow({
             </label>
           ))}
         </td>
-        <td className="px-3 py-2 text-right space-x-2 whitespace-nowrap">
-          <button
-            onClick={onSaveEditing}
-            className="text-primary hover:text-primary-strong text-sm px-2 py-1.5"
-          >
-            保存
-          </button>
-          <button
-            onClick={onCancelEditing}
-            className="text-slate-500 hover:text-slate-700 text-sm px-2 py-1.5"
-          >
-            キャンセル
-          </button>
+        <td className="px-3 py-2 text-right whitespace-nowrap">
+          <div className="flex justify-end gap-2">
+            <button onClick={onCancelEditing} className="btn btn-sm btn-quiet">
+              キャンセル
+            </button>
+            <button onClick={onSaveEditing} className="btn btn-sm btn-primary">
+              保存
+            </button>
+          </div>
         </td>
       </tr>
     )
@@ -309,7 +305,7 @@ function SortableRow({
             aria-label={`${s.name} を削除`}
             title="削除"
             className="p-2.5 rounded-lg transition-colors"
-            idleClassName="text-slate-500 hover:text-error-strong hover:bg-error-soft"
+            idleClassName="text-error hover:text-error-strong hover:bg-error-soft"
             confirmClassName="bg-error text-white hover:bg-error-strong"
             confirmChildren={<Check size={16} />}
           >
