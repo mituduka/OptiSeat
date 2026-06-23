@@ -1171,7 +1171,7 @@ export default function SettingsPage() {
                               <div className="flex items-center justify-end">
                                 <button
                                   onClick={() => handleOpenRfDialog(studentIdA)}
-                                  aria-label={`${stA?.name ?? `ID${studentIdA}`} の制約を編集`}
+                                  aria-label={`${stA?.name ?? `ID${studentIdA}`} の周囲配置を編集`}
                                   title="編集"
                                   className="p-2 text-slate-500 hover:text-slate-700"
                                 >
@@ -1179,7 +1179,7 @@ export default function SettingsPage() {
                                 </button>
                                 <ConfirmButton
                                   onConfirm={() => removeRelativeFixedGroup(studentIdA)}
-                                  aria-label={`${stA?.name ?? `ID${studentIdA}`} の制約を削除`}
+                                  aria-label={`${stA?.name ?? `ID${studentIdA}`} の周囲配置を削除`}
                                   title="削除"
                                   className="p-2 rounded-lg transition-colors"
                                   idleClassName="text-error hover:text-error-strong hover:bg-error-soft"
@@ -1217,7 +1217,7 @@ export default function SettingsPage() {
                           <div className="flex items-center shrink-0">
                             <button
                               onClick={() => handleOpenRfDialog(studentIdA)}
-                              aria-label={`${nameA} の制約を編集`}
+                              aria-label={`${nameA} の周囲配置を編集`}
                               title="編集"
                               className="p-2 text-slate-500 hover:text-slate-700"
                             >
@@ -1225,7 +1225,7 @@ export default function SettingsPage() {
                             </button>
                             <ConfirmButton
                               onConfirm={() => removeRelativeFixedGroup(studentIdA)}
-                              aria-label={`${nameA} の制約を削除`}
+                              aria-label={`${nameA} の周囲配置を削除`}
                               title="削除"
                               className="p-2 rounded-lg transition-colors"
                               idleClassName="text-error hover:text-error-strong hover:bg-error-soft"
