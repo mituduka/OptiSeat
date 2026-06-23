@@ -28,16 +28,18 @@ function isMaleSelectedLabel(allowed?: 'male' | 'female'): string {
 }
 
 /**
- * 全削除ボタン。共通の2段階クリック確認ボタン {@link ConfirmButton} に「全削除」/「本当に削除？」の
- * 体裁を与えたプリセット。誤操作防止のため1回目で確認表示に変わり、2回目で実行する。
+ * 全削除ボタン。共通の2段階クリック確認ボタン {@link ConfirmButton} に赤いゴミ箱アイコンの
+ * 体裁を与えたプリセット。誤操作防止のため1回目でチェックアイコンに変わり、2回目で実行する。
  */
 function ClearAllButton({ onClear, disabled }: { onClear: () => void; disabled?: boolean }) {
   return (
     <ConfirmButton
       onConfirm={onClear}
       disabled={disabled}
-      confirmChildren="本当に削除？"
-      className="btn btn-sm"
+      title="全削除"
+      aria-label="全削除"
+      confirmChildren={<Check size={16} />}
+      className="btn btn-sm min-w-20"
       idleClassName="btn-danger"
       confirmClassName="bg-error text-white hover:bg-error-strong"
     >
@@ -997,19 +999,28 @@ export default function SettingsPage() {
                             <td className="px-3 py-2 font-medium whitespace-nowrap">{stA?.name ?? `ID${g.studentIdA}`}</td>
                             <td className="px-3 py-2 text-sm text-slate-600">{bNames.join(', ')}</td>
                             <td className="px-3 py-2 text-sm text-slate-500 whitespace-nowrap">{FORBID_TYPE_LABELS[g.type] ?? g.type}</td>
-                            <td className="px-3 py-2 text-right space-x-2 whitespace-nowrap">
-                              <button
-                                onClick={() => handleOpenFbEditGroupDialog(g.studentIdA, g.type)}
-                                className="text-slate-500 hover:text-slate-700 text-sm px-2 py-1.5"
-                              >
-                                編集
-                              </button>
-                              <button
-                                onClick={() => removeForbiddenGroupByType(g.studentIdA, g.type)}
-                                className="text-error hover:text-error-strong text-sm px-2 py-1.5"
-                              >
-                                削除
-                              </button>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center justify-end">
+                                <button
+                                  onClick={() => handleOpenFbEditGroupDialog(g.studentIdA, g.type)}
+                                  aria-label={`${stA?.name ?? `ID${g.studentIdA}`} の制約を編集`}
+                                  title="編集"
+                                  className="p-2 text-slate-500 hover:text-slate-700"
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                                <ConfirmButton
+                                  onConfirm={() => removeForbiddenGroupByType(g.studentIdA, g.type)}
+                                  aria-label={`${stA?.name ?? `ID${g.studentIdA}`} の制約を削除`}
+                                  title="削除"
+                                  className="p-2 rounded-lg transition-colors"
+                                  idleClassName="text-error hover:text-error-strong hover:bg-error-soft"
+                                  confirmClassName="bg-error text-white hover:bg-error-strong"
+                                  confirmChildren={<Check size={16} />}
+                                >
+                                  <Trash2 size={16} />
+                                </ConfirmButton>
+                              </div>
                             </td>
                           </tr>
                         )
@@ -1041,17 +1052,22 @@ export default function SettingsPage() {
                             <button
                               onClick={() => handleOpenFbEditGroupDialog(g.studentIdA, g.type)}
                               aria-label={`${nameA} の制約を編集`}
+                              title="編集"
                               className="p-2 text-slate-500 hover:text-slate-700"
                             >
                               <Pencil size={16} />
                             </button>
-                            <button
-                              onClick={() => removeForbiddenGroupByType(g.studentIdA, g.type)}
+                            <ConfirmButton
+                              onConfirm={() => removeForbiddenGroupByType(g.studentIdA, g.type)}
                               aria-label={`${nameA} の制約を削除`}
-                              className="p-2 text-error hover:text-error-strong"
+                              title="削除"
+                              className="p-2 rounded-lg transition-colors"
+                              idleClassName="text-error hover:text-error-strong hover:bg-error-soft"
+                              confirmClassName="bg-error text-white hover:bg-error-strong"
+                              confirmChildren={<Check size={16} />}
                             >
                               <Trash2 size={16} />
-                            </button>
+                            </ConfirmButton>
                           </div>
                         </div>
                       )
@@ -1151,19 +1167,28 @@ export default function SettingsPage() {
                           <tr key={studentIdA} className="border-t border-slate-200 hover:bg-slate-50">
                             <td className="px-3 py-2 font-medium">{stA?.name ?? `ID${studentIdA}`}</td>
                             <td className="px-3 py-2 text-sm text-slate-600">{bNames.join(', ')}</td>
-                            <td className="px-3 py-2 text-right space-x-2 whitespace-nowrap">
-                              <button
-                                onClick={() => handleOpenRfDialog(studentIdA)}
-                                className="text-slate-500 hover:text-slate-700 text-sm px-2 py-1.5"
-                              >
-                                編集
-                              </button>
-                              <button
-                                onClick={() => removeRelativeFixedGroup(studentIdA)}
-                                className="text-error hover:text-error-strong text-sm px-2 py-1.5"
-                              >
-                                削除
-                              </button>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center justify-end">
+                                <button
+                                  onClick={() => handleOpenRfDialog(studentIdA)}
+                                  aria-label={`${stA?.name ?? `ID${studentIdA}`} の周囲配置を編集`}
+                                  title="編集"
+                                  className="p-2 text-slate-500 hover:text-slate-700"
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                                <ConfirmButton
+                                  onConfirm={() => removeRelativeFixedGroup(studentIdA)}
+                                  aria-label={`${stA?.name ?? `ID${studentIdA}`} の周囲配置を削除`}
+                                  title="削除"
+                                  className="p-2 rounded-lg transition-colors"
+                                  idleClassName="text-error hover:text-error-strong hover:bg-error-soft"
+                                  confirmClassName="bg-error text-white hover:bg-error-strong"
+                                  confirmChildren={<Check size={16} />}
+                                >
+                                  <Trash2 size={16} />
+                                </ConfirmButton>
+                              </div>
                             </td>
                           </tr>
                         )
@@ -1193,17 +1218,22 @@ export default function SettingsPage() {
                             <button
                               onClick={() => handleOpenRfDialog(studentIdA)}
                               aria-label={`${nameA} の周囲配置を編集`}
+                              title="編集"
                               className="p-2 text-slate-500 hover:text-slate-700"
                             >
                               <Pencil size={16} />
                             </button>
-                            <button
-                              onClick={() => removeRelativeFixedGroup(studentIdA)}
+                            <ConfirmButton
+                              onConfirm={() => removeRelativeFixedGroup(studentIdA)}
                               aria-label={`${nameA} の周囲配置を削除`}
-                              className="p-2 text-error hover:text-error-strong"
+                              title="削除"
+                              className="p-2 rounded-lg transition-colors"
+                              idleClassName="text-error hover:text-error-strong hover:bg-error-soft"
+                              confirmClassName="bg-error text-white hover:bg-error-strong"
+                              confirmChildren={<Check size={16} />}
                             >
                               <Trash2 size={16} />
-                            </button>
+                            </ConfirmButton>
                           </div>
                         </div>
                       )
@@ -1646,18 +1676,18 @@ export default function SettingsPage() {
                     title="編集"
                     aria-label={`${lg.name} を編集`}
                   >
-                    <SquarePen size={14} />
+                    <SquarePen size={16} />
                   </button>
                   <ConfirmButton
                     onConfirm={() => removeLeaderGroup(lg.id)}
                     title="削除"
                     aria-label={`${lg.name} を削除`}
                     className="p-2.5 rounded-lg transition-colors"
-                    idleClassName="text-slate-500 hover:text-error-strong hover:bg-error-soft"
+                    idleClassName="text-error hover:text-error-strong hover:bg-error-soft"
                     confirmClassName="bg-error text-white hover:bg-error-strong"
-                    confirmChildren={<Check size={14} />}
+                    confirmChildren={<Check size={16} />}
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={16} />
                   </ConfirmButton>
                 </div>
               </div>

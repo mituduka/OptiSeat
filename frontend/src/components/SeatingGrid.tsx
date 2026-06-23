@@ -515,7 +515,7 @@ export default function SeatingGrid({
                     <span className="ml-1 text-xs text-amber-700 shrink-0">前側</span>
                   )}
                   {isBack && (
-                    <span className="ml-1 text-xs text-amber-700 shrink-0">後側</span>
+                    <span className="ml-1 text-xs text-teal-700 shrink-0">後側</span>
                   )}
                 </div>
               )
