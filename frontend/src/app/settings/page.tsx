@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useId } from 'react'
 import { createPortal } from 'react-dom'
-import { Pin, Mars, Venus, TriangleAlert, OctagonAlert, Pencil, Trash2, Check } from 'lucide-react'
+import { Pin, Mars, Venus, TriangleAlert, OctagonAlert, Pencil, Trash2, Check, SquarePen, X } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { useHasHydrated } from '@/hooks/useHasHydrated'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -1644,8 +1644,9 @@ export default function SettingsPage() {
                     onClick={() => handleOpenLgDialog(lg)}
                     className="p-2.5 text-slate-500 hover:text-primary hover:bg-primary-soft rounded-lg transition-colors"
                     title="編集"
+                    aria-label={`${lg.name} を編集`}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                    <SquarePen size={14} />
                   </button>
                   <ConfirmButton
                     onConfirm={() => removeLeaderGroup(lg.id)}
@@ -1656,7 +1657,7 @@ export default function SettingsPage() {
                     confirmClassName="bg-error text-white hover:bg-error-strong"
                     confirmChildren={<Check size={14} />}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                    <X size={14} />
                   </ConfirmButton>
                 </div>
               </div>

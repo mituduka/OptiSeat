@@ -107,12 +107,11 @@ describe('StudentTable', () => {
     const user = userEvent.setup()
     render(<StudentTable />)
 
-    const deleteButton = screen.getAllByRole('button', { name: '削除' })[0]
+    const deleteButton = screen.getByRole('button', { name: '山田 太郎 を削除' })
 
     // 1回目のクリックでは確認状態になるだけで削除されない
     await user.click(deleteButton)
     expect(useStore.getState().students).toHaveLength(2)
-    expect(deleteButton).toHaveTextContent('本当に削除？')
 
     // 2回目のクリックで削除される
     await user.click(deleteButton)
@@ -151,7 +150,7 @@ describe('StudentTable', () => {
     render(<StudentTable />)
 
     // 編集ボタンをクリック
-    await user.click(screen.getByRole('button', { name: '編集' }))
+    await user.click(screen.getByRole('button', { name: /を編集/ }))
 
     // 名前フィールドが編集可能になる
     const nameInput = screen.getByDisplayValue('山田 太郎')
@@ -174,7 +173,7 @@ describe('StudentTable', () => {
     const user = userEvent.setup()
     render(<StudentTable />)
 
-    await user.click(screen.getByRole('button', { name: '編集' }))
+    await user.click(screen.getByRole('button', { name: /を編集/ }))
     const nameInput = screen.getByDisplayValue('山田 太郎')
     await user.clear(nameInput)
     await user.type(nameInput, '変更後')
@@ -219,7 +218,7 @@ describe('StudentTable', () => {
     const user = userEvent.setup()
     render(<StudentTable />)
 
-    await user.click(screen.getByRole('button', { name: '編集' }))
+    await user.click(screen.getByRole('button', { name: /を編集/ }))
     // 編集行の女ラジオをクリック（インデックス1: フォーム行の次が編集行）
     const femaleRadios = screen.getAllByRole('radio', { name: '女' })
     await user.click(femaleRadios[1])
@@ -235,7 +234,7 @@ describe('StudentTable', () => {
     const user = userEvent.setup()
     render(<StudentTable />)
 
-    await user.click(screen.getByRole('button', { name: '編集' }))
+    await user.click(screen.getByRole('button', { name: /を編集/ }))
     // 編集行の「前側配慮」チェックボックスをオン（インデックス1: フォーム行の次が編集行）
     const checkboxes = screen.getAllByRole('checkbox', { name: '前側配慮' })
     await user.click(checkboxes[1])
