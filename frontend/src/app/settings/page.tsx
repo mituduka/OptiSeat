@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useId } from 'react'
 import { createPortal } from 'react-dom'
-import { Pin, Mars, Venus, TriangleAlert, OctagonAlert, Pencil, Trash2, Check, SquarePen, X } from 'lucide-react'
+import { Pin, Mars, Venus, TriangleAlert, OctagonAlert, Pencil, Trash2, Check, SquarePen } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { useHasHydrated } from '@/hooks/useHasHydrated'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -1657,7 +1657,7 @@ export default function SettingsPage() {
                     confirmClassName="bg-error text-white hover:bg-error-strong"
                     confirmChildren={<Check size={14} />}
                   >
-                    <X size={14} />
+                    <Trash2 size={14} />
                   </ConfirmButton>
                 </div>
               </div>

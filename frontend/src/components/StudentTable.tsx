@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { SquarePen, X, Check } from 'lucide-react'
+import { SquarePen, Trash2, Check } from 'lucide-react'
 import ConfirmButton from '@/components/ConfirmButton'
 import { useStore } from '@/lib/store'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -188,7 +188,7 @@ function SortableRow({
             confirmClassName="bg-error text-white hover:bg-error-strong"
             confirmChildren={<Check size={16} />}
           >
-            <X size={16} />
+            <Trash2 size={16} />
           </ConfirmButton>
         </div>
       </div>
@@ -313,7 +313,7 @@ function SortableRow({
             confirmClassName="bg-error text-white hover:bg-error-strong"
             confirmChildren={<Check size={16} />}
           >
-            <X size={16} />
+            <Trash2 size={16} />
           </ConfirmButton>
         </div>
       </td>
