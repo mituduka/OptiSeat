@@ -2,6 +2,7 @@
 
 import { Info } from 'lucide-react'
 import StudentTable from '@/components/StudentTable'
+import ConfirmButton from '@/components/ConfirmButton'
 import HelpPanel from '@/components/HelpPanel'
 import PageHeader from '@/components/PageHeader'
 import NextStepBar from '@/components/NextStepBar'
@@ -92,12 +93,16 @@ export default function StudentsPage() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-ink-muted">登録済み: {students.length} 名</span>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleInsertSample}
-                className="btn btn-sm btn-quiet"
+              <ConfirmButton
+                onConfirm={handleInsertSample}
+                needsConfirm={students.length > 0}
+                confirmChildren="本当に上書きしますか？"
+                className="btn btn-sm"
+                idleClassName="btn-quiet"
+                confirmClassName="bg-warning text-white hover:bg-warning-strong"
               >
                 サンプルデータ挿入
-              </button>
+              </ConfirmButton>
               {students.length > 0 && (
                 <button
                   onClick={() => openDataModal('reset')}

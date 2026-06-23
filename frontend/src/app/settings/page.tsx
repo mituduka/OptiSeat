@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useId } from 'react'
 import { createPortal } from 'react-dom'
-import { Pin, Mars, Venus, TriangleAlert, OctagonAlert, Pencil, Trash2 } from 'lucide-react'
+import { Pin, Mars, Venus, TriangleAlert, OctagonAlert, Pencil, Trash2, Check, SquarePen } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { useHasHydrated } from '@/hooks/useHasHydrated'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -16,6 +16,7 @@ import HelpPanel from '@/components/HelpPanel'
 import PageHeader from '@/components/PageHeader'
 import NextStepBar from '@/components/NextStepBar'
 import Modal from '@/components/Modal'
+import ConfirmButton from '@/components/ConfirmButton'
 import { NumberStepper } from '@/components/NumberStepper'
 import type { ForbiddenConstraint, RelativeFixedConstraint, LeaderGroup } from '@/types'
 
@@ -27,35 +28,21 @@ function isMaleSelectedLabel(allowed?: 'male' | 'female'): string {
 }
 
 /**
- * 全削除ボタン。誤操作防止のため2段階クリック式: 1回目でその場の同じボタンが
- * 「本当に削除？」に変わり、2回目で実行する。数秒放置・フォーカス喪失・Esc で自動復帰
+ * 全削除ボタン。共通の2段階クリック確認ボタン {@link ConfirmButton} に「全削除」/「本当に削除？」の
+ * 体裁を与えたプリセット。誤操作防止のため1回目で確認表示に変わり、2回目で実行する。
  */
 function ClearAllButton({ onClear, disabled }: { onClear: () => void; disabled?: boolean }) {
-  const [confirming, setConfirming] = useState(false)
-
-  useEffect(() => {
-    if (!confirming) return
-    const timer = setTimeout(() => setConfirming(false), 4000)
-    return () => clearTimeout(timer)
-  }, [confirming])
-
   return (
-    <button
-      onClick={() => {
-        if (confirming) {
-          onClear()
-          setConfirming(false)
-        } else {
-          setConfirming(true)
-        }
-      }}
-      onBlur={() => setConfirming(false)}
-      onKeyDown={(e) => { if (e.key === 'Escape') setConfirming(false) }}
+    <ConfirmButton
+      onConfirm={onClear}
       disabled={disabled}
-      className={`btn btn-sm ${confirming ? 'bg-error text-white hover:bg-error-strong' : 'btn-danger'}`}
+      confirmChildren="本当に削除？"
+      className="btn btn-sm"
+      idleClassName="btn-danger"
+      confirmClassName="bg-error text-white hover:bg-error-strong"
     >
-      {confirming ? '本当に削除？' : '全削除'}
-    </button>
+      全削除
+    </ConfirmButton>
   )
 }
 
@@ -1657,16 +1644,21 @@ export default function SettingsPage() {
                     onClick={() => handleOpenLgDialog(lg)}
                     className="p-2.5 text-slate-500 hover:text-primary hover:bg-primary-soft rounded-lg transition-colors"
                     title="編集"
+                    aria-label={`${lg.name} を編集`}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                    <SquarePen size={14} />
                   </button>
-                  <button
-                    onClick={() => removeLeaderGroup(lg.id)}
-                    className="p-2.5 text-slate-500 hover:text-error-strong hover:bg-error-soft rounded-lg transition-colors"
+                  <ConfirmButton
+                    onConfirm={() => removeLeaderGroup(lg.id)}
                     title="削除"
+                    aria-label={`${lg.name} を削除`}
+                    className="p-2.5 rounded-lg transition-colors"
+                    idleClassName="text-slate-500 hover:text-error-strong hover:bg-error-soft"
+                    confirmClassName="bg-error text-white hover:bg-error-strong"
+                    confirmChildren={<Check size={14} />}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                  </button>
+                    <Trash2 size={14} />
+                  </ConfirmButton>
                 </div>
               </div>
             ))}

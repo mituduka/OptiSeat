@@ -17,7 +17,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Pencil, Trash2 } from 'lucide-react'
+import { SquarePen, Trash2, Check } from 'lucide-react'
+import ConfirmButton from '@/components/ConfirmButton'
 import { useStore } from '@/lib/store'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import type { Gender, TagType, Student } from '@/types'
@@ -169,21 +170,26 @@ function SortableRow({
             </div>
           )}
         </div>
-        <div className="flex items-center shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => onStartEditing(s)}
             aria-label={`${s.name} を編集`}
-            className="p-2 text-slate-500 hover:text-slate-700"
+            title="編集"
+            className="p-2.5 text-slate-500 hover:text-primary hover:bg-primary-soft rounded-lg transition-colors"
           >
-            <Pencil size={16} />
+            <SquarePen size={16} />
           </button>
-          <button
-            onClick={() => onRemove(s.id)}
+          <ConfirmButton
+            onConfirm={() => onRemove(s.id)}
             aria-label={`${s.name} を削除`}
-            className="p-2 text-error hover:text-error-strong"
+            title="削除"
+            className="p-2.5 rounded-lg transition-colors"
+            idleClassName="text-slate-500 hover:text-error-strong hover:bg-error-soft"
+            confirmClassName="bg-error text-white hover:bg-error-strong"
+            confirmChildren={<Check size={16} />}
           >
             <Trash2 size={16} />
-          </button>
+          </ConfirmButton>
         </div>
       </div>
     )
@@ -288,19 +294,28 @@ function SortableRow({
           ))}
         </div>
       </td>
-      <td className="px-2 py-2 text-right whitespace-nowrap">
-        <button
-          onClick={() => onStartEditing(s)}
-          className="text-slate-500 hover:text-slate-700 text-sm px-2 py-1.5"
-        >
-          編集
-        </button>
-        <button
-          onClick={() => onRemove(s.id)}
-          className="text-error hover:text-error-strong text-sm px-2 py-1.5 ml-1"
-        >
-          削除
-        </button>
+      <td className="px-2 py-2 whitespace-nowrap">
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={() => onStartEditing(s)}
+            aria-label={`${s.name} を編集`}
+            title="編集"
+            className="p-2.5 text-slate-500 hover:text-primary hover:bg-primary-soft rounded-lg transition-colors"
+          >
+            <SquarePen size={16} />
+          </button>
+          <ConfirmButton
+            onConfirm={() => onRemove(s.id)}
+            aria-label={`${s.name} を削除`}
+            title="削除"
+            className="p-2.5 rounded-lg transition-colors"
+            idleClassName="text-slate-500 hover:text-error-strong hover:bg-error-soft"
+            confirmClassName="bg-error text-white hover:bg-error-strong"
+            confirmChildren={<Check size={16} />}
+          >
+            <Trash2 size={16} />
+          </ConfirmButton>
+        </div>
       </td>
     </tr>
   )
