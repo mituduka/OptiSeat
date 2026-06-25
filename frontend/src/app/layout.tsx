@@ -57,23 +57,25 @@ export default function RootLayout({
     <html lang="ja" className="h-full">
       <body className="flex flex-col md:flex-row h-dvh overflow-hidden">
         <AppInit />
-        <MobileHeader />
         <div className="print:hidden"><Sidebar /></div>
         <main className="flex-1 relative min-h-0 overflow-y-auto">
+          {/* モバイルヘッダーはスクロール領域内に置き、本文と一緒にスクロールして消える */}
+          <MobileHeader />
           <div className="main-safe-padding relative md:min-h-full">{children}</div>
         </main>
         <BottomNav />
         {/*
           iOS 26+ Safari は theme-color メタを廃止し、ステータスバー（通知領域）の色を
           ビューポート上端付近の position:fixed/sticky 要素の背景色から決定する。
-          通知領域を上部バーと同色にするため、上端の safe-area を覆う不透明な白
-          （= 上部バーと同じ bg-white）の固定要素を最前面に常時配置する。
-          safe-area が 0 の環境でも Safari のサンプリング条件を満たすよう最小高さを確保。
+          通知領域を白く保つため、上端を覆う不透明な白の固定要素を最前面に常時配置する。
+          非 standalone の本アプリでは safe-area-inset-top はブラウザのクロムが吸収するため
+          実機 Safari では 0、in-app browser では誤報告される。これを二重計上しないよう
+          高さは safe-area に依存しない固定値（= MobileHeader の上端余白と同量）にする。
         */}
         <div
           aria-hidden="true"
           className="md:hidden print:hidden fixed top-0 inset-x-0 z-60 bg-white pointer-events-none"
-          style={{ height: 'max(0.5rem, env(safe-area-inset-top))' }}
+          style={{ height: '0.5rem' }}
         />
         {/*
           同様に Safari は下部アドレスバーの色も下端付近の position:fixed 要素の背景色から決める。
