@@ -1,31 +1,21 @@
-'use client'
-
-import { Menu } from 'lucide-react'
-import { useStore } from '@/lib/store'
-
+// モバイル上部のロゴ表示のみのスリムなヘッダー。
+// ナビゲーションは BottomNav に一本化しているため、ここにハンバーガー等は持たせない。
+// layout.tsx でスクロール領域（<main>）の先頭に配置し、本文と一緒にスクロールして消える
+// （= 固定しない）ことで、縦領域が乏しい in-app browser でも本文領域を最大化する。
 export default function MobileHeader() {
-  const setSidebarOpen = useStore((s) => s.setSidebarOpen)
-
   return (
     <header
-      className="md:hidden flex items-center gap-3 px-3 bg-white text-ink border-b border-line print:hidden shrink-0"
+      className="md:hidden flex items-center px-3 bg-white text-ink border-b border-line print:hidden"
       style={{
-        // 上端の固定白ダミー（layout.tsx, 高さ max(0.5rem, safe-area-top)）と同量を確保し、
-        // safe-area=0 の環境でも白ダミーがヘッダー上部を覆わないようにする
-        paddingTop: 'max(0.5rem, env(safe-area-inset-top))',
+        // 非 standalone の本アプリでは safe-area-inset-top はブラウザのクロムが吸収するため
+        // 実機 Safari では 0。in-app browser では誤報告されるため予約しない（小さな固定余白のみ）。
+        // 上端の白ダミー（layout.tsx, 高さ 0.5rem）に重ならないよう同量を確保する。
+        paddingTop: '0.5rem',
         paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
         paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
       }}
     >
-      <div className="flex items-center gap-3 h-12 w-full">
-        <button
-          type="button"
-          aria-label="メニューを開く"
-          onClick={() => setSidebarOpen(true)}
-          className="p-2 -ml-2 rounded-lg text-ink-soft hover:bg-canvas active:bg-canvas transition-colors"
-        >
-          <Menu size={22} />
-        </button>
+      <div className="flex items-center h-12 w-full">
         <h1 className="text-base font-bold tracking-wide text-primary">OptiSeat</h1>
       </div>
     </header>

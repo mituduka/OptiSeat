@@ -1,32 +1,27 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import MobileHeader from './MobileHeader'
-import { useStore } from '@/lib/store'
 
 describe('MobileHeader', () => {
-  beforeEach(() => {
-    useStore.getState().setSidebarOpen(false)
-  })
-
   it('ロゴ「OptiSeat」が表示される', () => {
     render(<MobileHeader />)
     expect(screen.getByText('OptiSeat')).toBeInTheDocument()
   })
 
-  it('メニューを開くボタンが表示される', () => {
+  it('ナビ用のボタンを持たない（ナビは BottomNav に一本化）', () => {
     render(<MobileHeader />)
-    expect(screen.getByRole('button', { name: 'メニューを開く' })).toBeInTheDocument()
-  })
-
-  it('ボタンクリックで store の sidebarOpen が true になる', () => {
-    render(<MobileHeader />)
-    fireEvent.click(screen.getByRole('button', { name: 'メニューを開く' }))
-    expect(useStore.getState().sidebarOpen).toBe(true)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('md:hidden クラスを持つ（PC では非表示）', () => {
     const { container } = render(<MobileHeader />)
     const header = container.querySelector('header')
     expect(header?.className).toContain('md:hidden')
+  })
+
+  it('固定（fixed / sticky）されない（本文と一緒にスクロールして消える）', () => {
+    const { container } = render(<MobileHeader />)
+    const header = container.querySelector('header')
+    expect(header?.className).not.toMatch(/\b(fixed|sticky)\b/)
   })
 })
