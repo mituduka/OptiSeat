@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 interface ConfirmButtonProps {
   /** 確認後に実行する処理 */
@@ -28,7 +28,10 @@ interface ConfirmButtonProps {
 /**
  * 破壊的操作向けの2段階クリック確認ボタン。誤操作防止のため、1回目のクリックで
  * その場の同じボタンが確認表示に変わり、2回目で実行する。数秒放置・フォーカス喪失・
- * Esc で自動的に通常表示へ復帰する。
+ * Esc・ボタン外のクリック/タップで自動的に通常表示へ復帰する。
+ *
+ * 確認中はボタン外の pointerdown を監視して復帰するため、別のボタンをクリックすると
+ * （その pointerdown で）先のボタンは通常表示へ戻り、結果として確認状態は常に1つになる。
  */
 export default function ConfirmButton({
   onConfirm,
@@ -43,15 +46,26 @@ export default function ConfirmButton({
   'aria-label': ariaLabel,
 }: ConfirmButtonProps) {
   const [confirming, setConfirming] = useState(false)
+  const ref = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!confirming) return
+    // ボタン外のクリック/タップで復帰（タッチ環境では onBlur が発火しないため補完）。
+    // pointerdown は click より先に発火するので、別ボタンを押すと先に確認状態が解除される。
+    const onPointerDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setConfirming(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
     const timer = setTimeout(() => setConfirming(false), 4000)
-    return () => clearTimeout(timer)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      clearTimeout(timer)
+    }
   }, [confirming])
 
   return (
     <button
+      ref={ref}
       onClick={() => {
         if (!needsConfirm) {
           onConfirm()
