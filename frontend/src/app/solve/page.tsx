@@ -83,10 +83,6 @@ function CountBadge({ label, count, tooltip }: { label: string; count: number; t
   )
 }
 
-const STATUS_MESSAGE: Record<string, { label: string; color: string }> = {
-  timeout: { label: 'タイムアウトしました（暫定解を表示）', color: 'text-warning-strong' },
-}
-
 export default function SolvePage() {
   const {
     students,
@@ -310,16 +306,6 @@ export default function SolvePage() {
           </div>
         ))}
 
-        {/* ステータス表示 */}
-        {solveResult && STATUS_MESSAGE[solveResult.status] && (
-          <div role="status" className={`text-sm font-medium ${STATUS_MESSAGE[solveResult.status].color}`}>
-            {STATUS_MESSAGE[solveResult.status].label}
-            {solveResult.error && (
-              <span className="ml-2 text-slate-500">({solveResult.error.message})</span>
-            )}
-          </div>
-        )}
-
         {/* 解候補タブ */}
         <SolutionTabs
           solutions={solutions}
@@ -340,6 +326,7 @@ export default function SolvePage() {
           prevAssign={prevAssign}
           leaderGroups={leaderGroups}
           constraintToggles={constraintToggles}
+          emptySeats={seat.emptySeats}
         />
 
         {/* 結果なし */}
@@ -348,6 +335,9 @@ export default function SolvePage() {
             <p className="text-lg font-bold text-ink-soft">有効な席配置が見つかりませんでした</p>
             {solveResult.status === 'unsatisfiable' && (
               <p className="text-sm mt-1">指定された制約を同時に満たす座席配置が存在しません</p>
+            )}
+            {solveResult.status === 'timeout' && (
+              <p className="text-sm mt-1">制限時間内に解が見つかりませんでした（タイムアウト）</p>
             )}
             <p className="text-sm mt-2">制約を緩めるか、人数・座席数を確認してください</p>
             <Link href="/settings" className="btn btn-secondary mt-4">条件設定に戻る</Link>

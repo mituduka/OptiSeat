@@ -94,8 +94,9 @@ async def solve(request: SolveRequest, raw_request: Request) -> SolveResponse:
     席替え計算を実行し、最適な座席配置候補を返す
 
     - 解が見つかった場合: status=ok, solutions=[{rank, score, assignments}]
+      （一部ショットがタイムアウトしても、解が1件以上あれば ok を返す）
     - 制約矛盾で解なし: status=unsatisfiable
-    - タイムアウト: status=timeout（その時点の解があれば返す）
+    - 制限時間内に解が1件も見つからなかった場合: status=timeout
     """
     data = request.model_dump()
     timeout_sec = request.options.timeout
@@ -134,36 +135,35 @@ async def solve(request: SolveRequest, raw_request: Request) -> SolveResponse:
         )
     elapsed_ms = int((time.perf_counter() - start) * 1000)
 
+    # ステータス判定
+    # timed_out は runner.py の handle.wait() 戻り値に基づく正確な判別。
+    # （経過時間によるヒューリスティックは使用しない）
     status = (
-        "ok"
+        SolveStatus.ok
         if raw_solutions
-        else ("timeout" if timed_out else "unsatisfiable")
+        else (SolveStatus.timeout if timed_out else SolveStatus.unsatisfiable)
     )
     logger.info(
         "solve: status=%s, elapsed=%dms, solutions=%d",
-        status,
+        status.value,
         elapsed_ms,
         len(raw_solutions),
     )
 
-    # ステータス判定
-    # timed_out は runner.py の handle.wait() 戻り値に基づく正確な判別。
-    # （経過時間によるヒューリスティックは使用しない）
     if not raw_solutions:
-        if timed_out:
-            return SolveResponse(
-                status=SolveStatus.timeout,
-                elapsed_ms=elapsed_ms,
-                solutions=[],
-            )
-        return SolveResponse(
-            status=SolveStatus.unsatisfiable,
-            elapsed_ms=elapsed_ms,
-            solutions=[],
-            error=SolveError(
+        error = (
+            SolveError(
                 code="UNSATISFIABLE",
                 message="指定された制約を同時に満たす座席配置が存在しません。",
-            ),
+            )
+            if status is SolveStatus.unsatisfiable
+            else None
+        )
+        return SolveResponse(
+            status=status,
+            elapsed_ms=elapsed_ms,
+            solutions=[],
+            error=error,
         )
 
     # スコア計算とレスポンス組み立て
@@ -185,7 +185,7 @@ async def solve(request: SolveRequest, raw_request: Request) -> SolveResponse:
         )
 
     return SolveResponse(
-        status=SolveStatus.ok,
+        status=status,
         elapsed_ms=elapsed_ms,
         solutions=solutions,
     )

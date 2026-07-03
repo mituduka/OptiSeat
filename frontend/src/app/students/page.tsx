@@ -39,6 +39,7 @@ export default function StudentsPage() {
     clearRelativeFixed,
     addLeaderGroup,
     removeLeaderGroup,
+    setPrevAssign,
     updateConstraintToggle,
   } = useStore()
 
@@ -70,6 +71,9 @@ export default function StudentsPage() {
 
     leaderGroups.forEach((lg) => removeLeaderGroup(lg.id))
     SAMPLE_LEADER_GROUPS.forEach((lg) => addLeaderGroup(lg))
+
+    // サンプルには前回座席が含まれないため、以前のデータが残らないようクリアする
+    setPrevAssign([])
 
     const keys: (keyof ConstraintToggles)[] = [
       'gender_balance', 'loneliness', 'differ_seat', 'differ_neighbor', 'differ_group',

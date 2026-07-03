@@ -66,7 +66,6 @@ interface OptiSeatState {
   updateStudent: (id: number, patch: Partial<Omit<Student, 'id'>>) => void
   setStudents: (students: Student[]) => void
   reorderStudents: (fromIndex: number, toIndex: number) => void
-  insertStudentAt: (student: Student, index: number) => void
 
   // アクション: 座席設定
   updateSeat: (patch: Partial<SeatSettings>) => void
@@ -84,18 +83,13 @@ interface OptiSeatState {
   addFixed: (c: FixedConstraint) => void
   removeFixed: (studentId: number) => void
   addForbidden: (c: ForbiddenConstraint) => void
-  removeForbidden: (a: number, b: number) => void
-  removeForbiddenAt: (index: number) => void
   removeForbiddenGroupByType: (studentIdA: number, type: 'adjacent8' | 'same_group') => void
   replaceForbiddenGroup: (studentIdA: number, originalType: 'adjacent8' | 'same_group', newConstraints: ForbiddenConstraint[]) => void
   clearFixed: () => void
   clearForbidden: () => void
-  clearConstraints: () => void
   addSeatGender: (c: SeatGenderConstraint) => void
   removeSeatGender: (coord: { row: number; col: number }) => void
   clearSeatGender: () => void
-  setForbiddenForStudent: (studentIdA: number, constraints: ForbiddenConstraint[]) => void
-  removeForbiddenGroup: (studentIdA: number) => void
   setRelativeFixed: (studentIdA: number, constraints: RelativeFixedConstraint[]) => void
   removeRelativeFixedGroup: (studentIdA: number) => void
   clearRelativeFixed: () => void
@@ -225,7 +219,28 @@ export const useStore = create<OptiSeatState>()(
             ...(affectsSolve ? CLEAR_PIPELINE : {}),
           }
         }),
-      setStudents: (students) => set({ students, ...CLEAR_PIPELINE }),
+      setStudents: (students) =>
+        set((s) => {
+          // 名簿の丸ごと差し替え（インポート・サンプル挿入）では、新名簿に存在しない
+          // ID を参照する制約を残さない（removeStudent と同じカスケード削除）。
+          // 残すと ID が偶然一致した別人に制約が適用されてしまう
+          const ids = new Set(students.map((st) => st.id))
+          return {
+            students,
+            fixedConstraints: s.fixedConstraints.filter((f) => ids.has(f.studentId)),
+            forbiddenConstraints: s.forbiddenConstraints.filter(
+              (f) => ids.has(f.studentIdA) && ids.has(f.studentIdB),
+            ),
+            relativeFixedConstraints: s.relativeFixedConstraints.filter(
+              (c) => ids.has(c.studentIdA) && ids.has(c.studentIdB),
+            ),
+            leaderGroups: s.leaderGroups
+              .map((lg) => ({ ...lg, studentIds: lg.studentIds.filter((sid) => ids.has(sid)) }))
+              .filter((lg) => lg.studentIds.length >= 2),
+            prevAssign: s.prevAssign.filter((pa) => ids.has(pa.student_id)),
+            ...CLEAR_PIPELINE,
+          }
+        }),
       reorderStudents: (fromIndex, toIndex) =>
         set((s) => {
           const arr = [...s.students]
@@ -233,14 +248,6 @@ export const useStore = create<OptiSeatState>()(
           arr.splice(toIndex, 0, moved)
           return { students: arr, ...CLEAR_PIPELINE }
         }),
-      insertStudentAt: (student, index) =>
-        set((s) => {
-          if (s.students.length >= s.maxStudents) return s
-          const arr = [...s.students]
-          arr.splice(index, 0, student)
-          return { students: arr, ...CLEAR_PIPELINE }
-        }),
-
       // 座席設定
       updateSeat: (patch) =>
         set((s) => {
@@ -251,14 +258,23 @@ export const useStore = create<OptiSeatState>()(
           if (clampedPatch.numCols !== undefined) {
             clampedPatch.numCols = Math.min(Math.max(clampedPatch.numCols, 1), s.seatMaxCols)
           }
+          const newNumRows = (clampedPatch.numRows ?? s.seat.numRows) as number
+          const newNumCols = (clampedPatch.numCols ?? s.seat.numCols) as number
+          // 行数を減らしたとき前後配慮エリアの行数が実行数を超えないようクランプする
+          // （超えたまま残すと「1行目が後側エリア」のような不正な back_rows が生成される）
+          clampedPatch.frontRowCount = Math.min(
+            Math.max(clampedPatch.frontRowCount ?? s.seat.frontRowCount, 0), newNumRows)
+          clampedPatch.backRowCount = Math.min(
+            Math.max(clampedPatch.backRowCount ?? s.seat.backRowCount, 0), newNumRows)
           const anyChanged = (Object.keys(clampedPatch) as Array<keyof SeatSettings>).some((key) => {
             const newVal = clampedPatch[key]
             const oldVal = s.seat[key]
-            if (Array.isArray(newVal) || Array.isArray(oldVal)) return true
+            if (Array.isArray(newVal) && Array.isArray(oldVal)) {
+              // emptySeats 等の配列は内容で比較（同一内容の再設定でパイプラインを消さない）
+              return JSON.stringify(newVal) !== JSON.stringify(oldVal)
+            }
             return newVal !== oldVal
           })
-          const newNumRows = (clampedPatch.numRows ?? s.seat.numRows) as number
-          const newNumCols = (clampedPatch.numCols ?? s.seat.numCols) as number
           const fixedConstraints = s.fixedConstraints.filter(
             (f) => f.row >= 1 && f.row <= newNumRows && f.col >= 1 && f.col <= newNumCols,
           )
@@ -290,10 +306,14 @@ export const useStore = create<OptiSeatState>()(
                   )
                 : [...s.seat.emptySeats, coord],
             },
-            // 空席として設定する場合はその座席の固定制約を削除
+            // 空席として設定する場合はその座席の固定制約・性別配置制約を削除
+            // （空席セルは設定 UI から操作できなくなるため、残すと除去手段がなくなる）
             fixedConstraints: isCurrentlyEmpty
               ? s.fixedConstraints
               : s.fixedConstraints.filter((f) => !(f.row === coord.row && f.col === coord.col)),
+            seatGenderConstraints: isCurrentlyEmpty
+              ? s.seatGenderConstraints
+              : s.seatGenderConstraints.filter((c) => !(c.row === coord.row && c.col === coord.col)),
             ...CLEAR_PIPELINE,
           }
         }),
@@ -335,21 +355,6 @@ export const useStore = create<OptiSeatState>()(
             ...CLEAR_PIPELINE,
           }
         }),
-      removeForbidden: (a, b) =>
-        set((s) => ({
-          forbiddenConstraints: s.forbiddenConstraints.filter(
-            (f) => !(
-              (f.studentIdA === a && f.studentIdB === b) ||
-              (f.studentIdA === b && f.studentIdB === a)
-            ),
-          ),
-          ...CLEAR_PIPELINE,
-        })),
-      removeForbiddenAt: (index) =>
-        set((s) => ({
-          forbiddenConstraints: s.forbiddenConstraints.filter((_, i) => i !== index),
-          ...CLEAR_PIPELINE,
-        })),
       removeForbiddenGroupByType: (studentIdA, type) =>
         set((s) => ({
           forbiddenConstraints: s.forbiddenConstraints.filter(
@@ -378,25 +383,8 @@ export const useStore = create<OptiSeatState>()(
             ...CLEAR_PIPELINE,
           }
         }),
-      setForbiddenForStudent: (studentIdA, constraints) =>
-        set((s) => ({
-          forbiddenConstraints: [
-            ...s.forbiddenConstraints.filter((f) => f.studentIdA !== studentIdA),
-            ...constraints,
-          ],
-          ...CLEAR_PIPELINE,
-        })),
-      removeForbiddenGroup: (studentIdA) =>
-        set((s) => ({
-          forbiddenConstraints: s.forbiddenConstraints.filter(
-            (f) => f.studentIdA !== studentIdA,
-          ),
-          ...CLEAR_PIPELINE,
-        })),
       clearFixed: () => set({ fixedConstraints: [], ...CLEAR_PIPELINE }),
       clearForbidden: () => set({ forbiddenConstraints: [], ...CLEAR_PIPELINE }),
-      clearConstraints: () =>
-        set({ fixedConstraints: [], forbiddenConstraints: [], ...CLEAR_PIPELINE }),
       addSeatGender: (c) =>
         set((s) => ({
           seatGenderConstraints: [

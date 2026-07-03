@@ -59,6 +59,45 @@ describe('students アクション', () => {
     expect(students).toHaveLength(1)
     expect(students[0].id).toBe(10)
   })
+
+  it('setStudents で新名簿に存在しない ID を参照する制約が削除される', () => {
+    useStore.setState({
+      students: [
+        { id: 1, name: '旧1', gender: 'male', tags: [] },
+        { id: 2, name: '旧2', gender: 'female', tags: [] },
+        { id: 3, name: '旧3', gender: 'male', tags: [] },
+      ],
+      fixedConstraints: [{ studentId: 1, row: 1, col: 1 }, { studentId: 2, row: 1, col: 2 }],
+      forbiddenConstraints: [
+        { studentIdA: 1, studentIdB: 2, type: 'adjacent8' },
+        { studentIdA: 2, studentIdB: 3, type: 'adjacent8' },
+      ],
+      relativeFixedConstraints: [{ studentIdA: 1, studentIdB: 3, dRow: 0, dCol: 1 }],
+      leaderGroups: [
+        { id: 'a', name: '班長', studentIds: [1, 2, 3] },
+        { id: 'b', name: '副班長', studentIds: [1, 3] },
+      ],
+      prevAssign: [
+        { student_id: 1, row: 1, col: 1 },
+        { student_id: 3, row: 1, col: 2 },
+      ],
+    })
+    // id=1, 2 だけ残る新名簿に差し替え（3 が消える）
+    useStore.getState().setStudents([
+      { id: 1, name: '新1', gender: 'male', tags: [] },
+      { id: 2, name: '新2', gender: 'female', tags: [] },
+    ])
+    const s = useStore.getState()
+    expect(s.fixedConstraints).toHaveLength(2)                     // 1, 2 とも有効
+    expect(s.forbiddenConstraints).toEqual([
+      { studentIdA: 1, studentIdB: 2, type: 'adjacent8' },         // 2-3 は削除
+    ])
+    expect(s.relativeFixedConstraints).toHaveLength(0)             // 1-3 は削除
+    expect(s.leaderGroups).toEqual([
+      { id: 'a', name: '班長', studentIds: [1, 2] },               // 3 を除外して 2 人残り存続
+    ])                                                             // 'b' は 1 人になるので削除
+    expect(s.prevAssign).toEqual([{ student_id: 1, row: 1, col: 1 }])
+  })
 })
 
 describe('seat アクション', () => {
@@ -80,6 +119,30 @@ describe('seat アクション', () => {
     expect(useStore.getState().seat.emptySeats).toEqual([{ row: 1, col: 3 }])
     useStore.getState().toggleEmptySeat({ row: 1, col: 3 })
     expect(useStore.getState().seat.emptySeats).toEqual([])
+  })
+
+  it('numRows を縮小すると frontRowCount / backRowCount もクランプされる', () => {
+    useStore.getState().updateSeat({ numRows: 5, frontRowCount: 2, backRowCount: 3 })
+    useStore.getState().updateSeat({ numRows: 2 })
+    const seat = useStore.getState().seat
+    expect(seat.frontRowCount).toBe(2)  // 2 <= 2 なので維持
+    expect(seat.backRowCount).toBe(2)   // 3 → 2 にクランプ
+  })
+
+  it('toggleEmptySeat で空席にした座席の性別配置制約が削除される', () => {
+    useStore.getState().addSeatGender({ row: 1, col: 2, allowedGender: 'female' })
+    useStore.getState().addSeatGender({ row: 2, col: 1, allowedGender: 'male' })
+    useStore.getState().toggleEmptySeat({ row: 1, col: 2 })
+    expect(useStore.getState().seatGenderConstraints).toEqual([
+      { row: 2, col: 1, allowedGender: 'male' },
+    ])
+  })
+
+  it('updateSeat に同一内容の emptySeats を渡してもパイプラインはクリアされない', () => {
+    useStore.getState().toggleEmptySeat({ row: 1, col: 3 })
+    useStore.setState({ solveResult: DUMMY_SOLVE_RESULT })
+    useStore.getState().updateSeat({ emptySeats: [{ row: 1, col: 3 }] })
+    expect(useStore.getState().solveResult).not.toBeNull()
   })
 })
 
@@ -146,25 +209,6 @@ describe('forbiddenConstraints アクション', () => {
     expect(fc[0].type).toBe('same_group')
   })
 
-  it('removeForbidden で対象ペアのみ削除される', () => {
-    useStore.getState().addForbidden({ studentIdA: 1, studentIdB: 2, type: 'adjacent8' })
-    useStore.getState().addForbidden({ studentIdA: 3, studentIdB: 4, type: 'adjacent8' })
-    useStore.getState().removeForbidden(1, 2)
-    const fc = useStore.getState().forbiddenConstraints
-    expect(fc).toHaveLength(1)
-    expect(fc[0]).toEqual({ studentIdA: 3, studentIdB: 4, type: 'adjacent8' })
-  })
-
-  it('removeForbidden は (A,B) と (B,A) の両方向を削除する', () => {
-    useStore.getState().addForbidden({ studentIdA: 1, studentIdB: 2, type: 'adjacent8' })
-    useStore.getState().addForbidden({ studentIdA: 2, studentIdB: 1, type: 'adjacent8' })
-    useStore.getState().addForbidden({ studentIdA: 3, studentIdB: 4, type: 'adjacent8' })
-    useStore.getState().removeForbidden(1, 2)
-    const fc = useStore.getState().forbiddenConstraints
-    expect(fc).toHaveLength(1)
-    expect(fc[0]).toEqual({ studentIdA: 3, studentIdB: 4, type: 'adjacent8' })
-  })
-
   it('addForbidden で同じペア＋タイプの重複は無視される', () => {
     useStore.getState().addForbidden({ studentIdA: 1, studentIdB: 2, type: 'adjacent8' })
     useStore.getState().addForbidden({ studentIdA: 1, studentIdB: 2, type: 'adjacent8' })
@@ -181,15 +225,6 @@ describe('forbiddenConstraints アクション', () => {
     useStore.getState().addForbidden({ studentIdA: 1, studentIdB: 2, type: 'adjacent8' })
     useStore.getState().addForbidden({ studentIdA: 1, studentIdB: 2, type: 'same_group' })
     expect(useStore.getState().forbiddenConstraints).toHaveLength(2)
-  })
-
-  it('removeForbiddenAt でインデックス指定削除できる（同ペア別タイプも区別可能）', () => {
-    useStore.getState().addForbidden({ studentIdA: 1, studentIdB: 2, type: 'adjacent8' })
-    useStore.getState().addForbidden({ studentIdA: 1, studentIdB: 2, type: 'same_group' })
-    useStore.getState().removeForbiddenAt(0)
-    const fc = useStore.getState().forbiddenConstraints
-    expect(fc).toHaveLength(1)
-    expect(fc[0].type).toBe('same_group')
   })
 
   it('replaceForbiddenGroup で (A, type) グループを置き換えられる', () => {
@@ -391,59 +426,6 @@ describe('setPrevAssign アクション', () => {
   it('setPrevAssign で求解結果がクリアされる', () => {
     useStore.setState({ solveResult: DUMMY_SOLVE_RESULT, adoptedAssignments: DUMMY_ASSIGNMENTS, adjustingAssignments: DUMMY_ASSIGNMENTS, finalizedAssignments: DUMMY_ASSIGNMENTS })
     useStore.getState().setPrevAssign([{ student_id: 1, row: 1, col: 2 }])
-    expect(useStore.getState().solveResult).toBeNull()
-    expect(useStore.getState().adoptedAssignments).toBeNull()
-    expect(useStore.getState().adjustingAssignments).toBeNull()
-    expect(useStore.getState().finalizedAssignments).toBeNull()
-  })
-})
-
-describe('setForbiddenForStudent / removeForbiddenGroup アクション', () => {
-  it('setForbiddenForStudent で学生の禁止制約を一括設定する', () => {
-    const constraints = [{ studentIdA: 1, studentIdB: 2, type: 'adjacent8' as const }]
-    useStore.getState().setForbiddenForStudent(1, constraints)
-    expect(useStore.getState().forbiddenConstraints).toEqual(constraints)
-  })
-
-  it('setForbiddenForStudent で同じ studentIdA の制約を上書きする', () => {
-    useStore.getState().setForbiddenForStudent(1, [{ studentIdA: 1, studentIdB: 2, type: 'adjacent8' as const }])
-    useStore.getState().setForbiddenForStudent(1, [{ studentIdA: 1, studentIdB: 3, type: 'same_group' as const }])
-    const fc = useStore.getState().forbiddenConstraints
-    expect(fc).toHaveLength(1)
-    expect(fc[0].studentIdB).toBe(3)
-  })
-
-  it('removeForbiddenGroup で学生の全禁止制約を削除する', () => {
-    useStore.getState().setForbiddenForStudent(1, [{ studentIdA: 1, studentIdB: 2, type: 'adjacent8' as const }])
-    useStore.getState().addForbidden({ studentIdA: 3, studentIdB: 4, type: 'adjacent8' })
-    useStore.getState().removeForbiddenGroup(1)
-    const fc = useStore.getState().forbiddenConstraints
-    expect(fc).toHaveLength(1)
-    expect(fc[0].studentIdA).toBe(3)
-  })
-
-  it('setForbiddenForStudent で求解結果がクリアされる', () => {
-    useStore.setState({ solveResult: DUMMY_SOLVE_RESULT, adoptedAssignments: DUMMY_ASSIGNMENTS, adjustingAssignments: DUMMY_ASSIGNMENTS, finalizedAssignments: DUMMY_ASSIGNMENTS })
-    useStore.getState().setForbiddenForStudent(1, [{ studentIdA: 1, studentIdB: 2, type: 'adjacent8' as const }])
-    expect(useStore.getState().solveResult).toBeNull()
-    expect(useStore.getState().adoptedAssignments).toBeNull()
-    expect(useStore.getState().adjustingAssignments).toBeNull()
-    expect(useStore.getState().finalizedAssignments).toBeNull()
-  })
-})
-
-describe('clearConstraints アクション', () => {
-  it('clearConstraints で固定制約と隣接禁止制約を一括削除する', () => {
-    useStore.getState().addFixed({ studentId: 1, row: 1, col: 3 })
-    useStore.getState().addForbidden({ studentIdA: 1, studentIdB: 2, type: 'adjacent8' })
-    useStore.getState().clearConstraints()
-    expect(useStore.getState().fixedConstraints).toHaveLength(0)
-    expect(useStore.getState().forbiddenConstraints).toHaveLength(0)
-  })
-
-  it('clearConstraints で求解結果がクリアされる', () => {
-    useStore.setState({ solveResult: DUMMY_SOLVE_RESULT, adoptedAssignments: DUMMY_ASSIGNMENTS, adjustingAssignments: DUMMY_ASSIGNMENTS, finalizedAssignments: DUMMY_ASSIGNMENTS })
-    useStore.getState().clearConstraints()
     expect(useStore.getState().solveResult).toBeNull()
     expect(useStore.getState().adoptedAssignments).toBeNull()
     expect(useStore.getState().adjustingAssignments).toBeNull()

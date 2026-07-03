@@ -16,12 +16,12 @@ import os
 logger = logging.getLogger(__name__)
 
 
-def _env_int(key: str, default: int) -> int:
+def _env_int(key: str, default: int, minimum: int = 1) -> int:
     raw = os.getenv(key)
     if raw is None:
         return default
     try:
-        return int(raw)
+        value = int(raw)
     except ValueError:
         logger.warning(
             "環境変数 %s の値 '%s' が不正です。デフォルト値 %d を使用します。",
@@ -30,6 +30,16 @@ def _env_int(key: str, default: int) -> int:
             default,
         )
         return default
+    if value < minimum:
+        logger.warning(
+            "環境変数 %s の値 %d が下限 %d 未満です。デフォルト値 %d を使用します。",
+            key,
+            value,
+            minimum,
+            default,
+        )
+        return default
+    return value
 
 
 def _env_float(key: str, default: float) -> float:
@@ -71,7 +81,10 @@ SEAT_MAX_COLS: int = _env_int("SEAT_MAX_COLS", 12)
 
 # clingo の --rand-freq オプション値（0〜1、探索のランダム性を制御）。
 # 1 に近いほど多様な解が得られるが収束が遅くなる。バックエンド内部のみで使用。
-SOLVER_RAND_FREQ: float = _env_float("SOLVER_RAND_FREQ", 1.0)
+# clingo が受け付けるのは 0〜1 のためこの範囲にクランプする。
+SOLVER_RAND_FREQ: float = min(
+    max(_env_float("SOLVER_RAND_FREQ", 1.0), 0.0), 1.0
+)
 
 # ソルバ並列実行のワーカー数。シードごとの独立探索を並列実行する際のスレッド数上限。
 # デフォルトは os.cpu_count()。SOLVER_WORKERS 環境変数で明示的に制御可能。

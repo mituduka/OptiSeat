@@ -188,16 +188,13 @@ def compute_score(
     prev_neighbor_same = len(prev_neighbor_pairs & cur_neighbor_pairs)
 
     # S-07: prev_group_same（前回と同班構成の班の件数）
-    prev_assign_map_score = {
-        pa["student_id"]: pa["seat_id"]
-        for pa in request_data.get("prev_assign", [])
-    }
+    # prev_map（S-05 で構築済み）を再利用する
     prev_group_same = 0
     for group in request_data.get("groups", []):
         group_seat_set = set(group["seat_ids"])
         prev_members = frozenset(
             sid
-            for sid, seat_id in prev_assign_map_score.items()
+            for sid, seat_id in prev_map.items()
             if seat_id in group_seat_set
         )
         cur_members = frozenset(
@@ -229,17 +226,17 @@ def compute_score(
 
     # 相対的固定制約違反（ハード制約だが手動変更で発生しうる）
     relative_fixed_violations = 0
-    seat_coord_map = {
-        s["id"]: (s["row"], s["col"]) for s in request_data["seats"]
-    }
+
+    def seat_coord(seat_id: int | None) -> tuple[int, int] | None:
+        """seat_map から (row, col) を引く。存在しない場合は None。"""
+        seat = seat_map.get(seat_id) if seat_id is not None else None
+        return (seat["row"], seat["col"]) if seat is not None else None
+
     coord_to_seat = {
         (s["row"], s["col"]): s["id"] for s in request_data["seats"]
     }
     for rf in request_data.get("constraints", {}).get("relative_fixed", []):
-        seat_a = assign_map.get(rf["student_id_a"])
-        if seat_a is None:
-            continue
-        coord_a = seat_coord_map.get(seat_a)
+        coord_a = seat_coord(assign_map.get(rf["student_id_a"]))
         if coord_a is None:
             continue
         row_a, col_a = coord_a
@@ -261,8 +258,8 @@ def compute_score(
             continue
         fb_type = fb.get("type", "adjacent8")
         if fb_type == "adjacent8":
-            coord_a = seat_coord_map.get(seat_a)
-            coord_b = seat_coord_map.get(seat_b)
+            coord_a = seat_coord(seat_a)
+            coord_b = seat_coord(seat_b)
             if coord_a is None or coord_b is None:
                 continue
             row_a, col_a = coord_a

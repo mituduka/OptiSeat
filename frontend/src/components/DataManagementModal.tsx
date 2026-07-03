@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
+import { seatIdToPosition } from '@/lib/seats'
 import type { ExportData, Gender, TagType, RelativeFixedConstraint, ConstraintToggles, LeaderGroup } from '@/types'
 import Modal from './Modal'
 
@@ -21,7 +22,17 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
+function isNum(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+/** {row, col} 座標の配列か */
+function isCoordArray(v: unknown): boolean {
+  return Array.isArray(v) && v.every((c) => isRecord(c) && isNum(c.row) && isNum(c.col))
+}
+
 const VALID_TAGS: readonly string[] = ['front_preferred', 'back_preferred']
+const VALID_FORBID_TYPES: readonly string[] = ['adjacent8', 'same_group']
 
 function validateExportData(parsed: unknown): string | null {
   if (!isRecord(parsed)) return 'ファイル形式が不正です（JSON オブジェクトではありません）'
@@ -51,26 +62,71 @@ function validateExportData(parsed: unknown): string | null {
     const settings = parsed.seat.settings
     if (
       !isRecord(settings) ||
-      typeof settings.numRows !== 'number' ||
-      typeof settings.numCols !== 'number' ||
-      typeof settings.frontRowCount !== 'number' ||
-      typeof settings.backRowCount !== 'number' ||
-      typeof settings.numGroups !== 'number' ||
-      !Array.isArray(settings.emptySeats)
+      !isNum(settings.numRows) ||
+      !isNum(settings.numCols) ||
+      !isNum(settings.frontRowCount) ||
+      !isNum(settings.backRowCount) ||
+      !isNum(settings.numGroups) ||
+      !isCoordArray(settings.emptySeats)
     ) {
       return '座席設定（seat.settings）の形式が不正です'
     }
-    const arrayKeys = [
-      'groups',
-      'seatGenderConstraints',
-      'fixedConstraints',
-      'forbiddenConstraints',
-      'relativeFixedConstraints',
-    ] as const
-    for (const key of arrayKeys) {
-      if (!Array.isArray(parsed.seat[key])) return `条件データ（seat.${key}）の形式が不正です`
+    // 各制約は要素レベルまで検証する（壊れた要素が localStorage に永続化されると
+    // 全ページがクラッシュし、全リセットでしか復旧できなくなるため）
+    const seat = parsed.seat
+    if (
+      !Array.isArray(seat.groups) ||
+      seat.groups.some((g) => !isRecord(g) || !isNum(g.groupId) || !isCoordArray(g.seatCoords))
+    ) {
+      return '条件データ（seat.groups）の形式が不正です'
     }
-    if (parsed.seat.leaderGroups !== undefined && !Array.isArray(parsed.seat.leaderGroups)) {
+    if (
+      !Array.isArray(seat.seatGenderConstraints) ||
+      seat.seatGenderConstraints.some(
+        (c) =>
+          !isRecord(c) || !isNum(c.row) || !isNum(c.col) ||
+          (c.allowedGender !== 'male' && c.allowedGender !== 'female'),
+      )
+    ) {
+      return '条件データ（seat.seatGenderConstraints）の形式が不正です'
+    }
+    if (
+      !Array.isArray(seat.fixedConstraints) ||
+      seat.fixedConstraints.some(
+        (c) => !isRecord(c) || !isNum(c.studentId) || !isNum(c.row) || !isNum(c.col),
+      )
+    ) {
+      return '条件データ（seat.fixedConstraints）の形式が不正です'
+    }
+    if (
+      !Array.isArray(seat.forbiddenConstraints) ||
+      seat.forbiddenConstraints.some(
+        (c) =>
+          !isRecord(c) || !isNum(c.studentIdA) || !isNum(c.studentIdB) ||
+          !VALID_FORBID_TYPES.includes(c.type as string),
+      )
+    ) {
+      return '条件データ（seat.forbiddenConstraints）の形式が不正です'
+    }
+    if (
+      !Array.isArray(seat.relativeFixedConstraints) ||
+      seat.relativeFixedConstraints.some(
+        (c) =>
+          !isRecord(c) || !isNum(c.studentIdA) || !isNum(c.studentIdB) ||
+          !isNum(c.dRow) || !isNum(c.dCol),
+      )
+    ) {
+      return '条件データ（seat.relativeFixedConstraints）の形式が不正です'
+    }
+    if (
+      seat.leaderGroups !== undefined &&
+      (!Array.isArray(seat.leaderGroups) ||
+        seat.leaderGroups.some(
+          (lg) =>
+            !isRecord(lg) || typeof lg.id !== 'string' || typeof lg.name !== 'string' ||
+            !Array.isArray(lg.studentIds) || lg.studentIds.some((sid) => !isNum(sid)),
+        ))
+    ) {
       return '条件データ（seat.leaderGroups）の形式が不正です'
     }
   }
@@ -188,7 +244,9 @@ export default function DataManagementModal({ onClose, defaultTab = 'export' }: 
     const a = document.createElement('a')
     a.href = url
     a.download = `optiseat-export-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     URL.revokeObjectURL(url)
     onClose()
   }
@@ -292,8 +350,7 @@ export default function DataManagementModal({ onClose, defaultTab = 'export' }: 
       setPrevAssign(
         importFile.assignments.map((a: { student_id: number; seat_id: number }) => ({
           student_id: a.student_id,
-          row: Math.ceil(a.seat_id / nc),
-          col: ((a.seat_id - 1) % nc) + 1,
+          ...seatIdToPosition(a.seat_id, nc),
         })),
       )
     }

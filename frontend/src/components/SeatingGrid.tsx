@@ -3,9 +3,10 @@
 import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Pin } from 'lucide-react'
-import { generateSeats } from '@/lib/seats'
+import { generateSeats, coordsToSeatId } from '@/lib/seats'
 import { getGroupStyle } from '@/lib/groupColors'
 import { violationText } from '@/lib/constraintLabels'
+import { truncateLeaderLabel } from '@/lib/pdf/seatingModel'
 import GridScrollArea from '@/components/GridScrollArea'
 import { DraggableSeat } from './DraggableSeat'
 import type {
@@ -141,7 +142,7 @@ export default function SeatingGrid({
   // 前回横隣ペアのセット（"minId,maxId" 形式）
   const prevNeighborPairSet = new Set<string>()
   if (prevAssign.length > 0) {
-    const prevStudentToSeat = new Map(prevAssign.map((p) => [p.student_id, (p.row - 1) * numCols + p.col]))
+    const prevStudentToSeat = new Map(prevAssign.map((p) => [p.student_id, coordsToSeatId(p.row, p.col, numCols)]))
     for (const [s1, sid1] of prevStudentToSeat) {
       const sd1 = seatById.get(sid1)
       if (!sd1) continue
@@ -158,8 +159,8 @@ export default function SeatingGrid({
   const prevGroupSameIds = new Set<number>()
   if (prevAssign.length > 0) {
     for (const group of groups) {
-      const groupSeatIds = new Set(group.seatCoords.map(({ row, col }) => (row - 1) * numCols + col))
-      const prevMembers = new Set(prevAssign.filter((p) => groupSeatIds.has((p.row - 1) * numCols + p.col)).map((p) => p.student_id))
+      const groupSeatIds = new Set(group.seatCoords.map(({ row, col }) => coordsToSeatId(row, col, numCols)))
+      const prevMembers = new Set(prevAssign.filter((p) => groupSeatIds.has(coordsToSeatId(p.row, p.col, numCols))).map((p) => p.student_id))
       const curMembers = new Set<number>()
       for (const sid of groupSeatIds) { const s = seatToStudent.get(sid); if (s) curMembers.add(s.id) }
       if (prevMembers.size > 0 && prevMembers.size === curMembers.size && [...prevMembers].every((id) => curMembers.has(id)))
@@ -374,7 +375,7 @@ export default function SeatingGrid({
 
                         // ⑦前回同席（differ_seat=false なら警告スキップ）
                         const prevEntry = prevAssign.find((p) => p.student_id === student.id)
-                        const prevSeatId = prevEntry ? (prevEntry.row - 1) * numCols + prevEntry.col : undefined
+                        const prevSeatId = prevEntry ? coordsToSeatId(prevEntry.row, prevEntry.col, numCols) : undefined
                         if (prevSeatId !== undefined && prevSeatId === seat.id && (constraintToggles === undefined || constraintToggles.differ_seat))
                           violationTexts.push(violationText.prevSameSeat())
 
@@ -491,7 +492,7 @@ export default function SeatingGrid({
                                   const names = leaderGroups.filter((lg) => (showAllLeaderGroups || lg.showLabel !== false) && lg.studentIds.includes(student.id)).map((lg) => lg.name)
                                   if (names.length === 0) return null
                                   // 表示後の最大文字数に応じて最大フォントを選択（2つ横並びを保証）
-                                  const displayed = names.map((n) => n.length > 5 ? n.slice(0, 4) + '…' : n)
+                                  const displayed = names.map(truncateLeaderLabel)
                                   const maxLen = Math.max(...displayed.map((n) => n.length))
                                   const textSize = maxLen >= 5 ? 'text-[6px]' : maxLen >= 4 ? 'text-[7px]' : 'text-[9px]'
                                   return displayed.map((label, i) => (

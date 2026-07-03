@@ -45,11 +45,13 @@ export interface SeatingModelInput {
 }
 
 /**
- * 班分散グループ名を表示用に省略する（SeatingGrid.tsx と同一ルール）。
- * 5 文字以上は先頭 4 文字 + … にする。
+ * 班分散グループ名を表示用に省略する（SeatingGrid.tsx からも参照する共通ルール）。
+ * 6 文字以上は先頭 4 文字 + … にする。
+ * コードポイント単位で数える（サロゲートペアの拡張漢字を分割しない）。
  */
 export function truncateLeaderLabel(name: string): string {
-  return name.length > 5 ? name.slice(0, 4) + '…' : name
+  const chars = Array.from(name)
+  return chars.length > 5 ? chars.slice(0, 4).join('') + '…' : name
 }
 
 export function buildSeatingModel(input: SeatingModelInput): SeatingModel {

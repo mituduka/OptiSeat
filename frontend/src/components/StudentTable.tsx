@@ -131,7 +131,7 @@ function SortableRow({
             <button onClick={onCancelEditing} className="btn btn-sm btn-quiet">
               キャンセル
             </button>
-            <button onClick={onSaveEditing} className="btn btn-sm btn-primary">
+            <button onClick={onSaveEditing} disabled={!editName.trim()} className="btn btn-sm btn-primary">
               保存
             </button>
           </div>
@@ -248,7 +248,7 @@ function SortableRow({
             <button onClick={onCancelEditing} className="btn btn-sm btn-quiet">
               キャンセル
             </button>
-            <button onClick={onSaveEditing} className="btn btn-sm btn-primary">
+            <button onClick={onSaveEditing} disabled={!editName.trim()} className="btn btn-sm btn-primary">
               保存
             </button>
           </div>
@@ -353,7 +353,9 @@ export default function StudentTable() {
 
   function saveEditing() {
     if (editingId === null) return
-    updateStudent(editingId, { name: editName.trim() || editName, gender: editGender, tags: editTags })
+    const trimmed = editName.trim()
+    if (!trimmed) return // 空白のみの氏名は保存しない（保存ボタンも無効化している）
+    updateStudent(editingId, { name: trimmed, gender: editGender, tags: editTags })
     setEditingId(null)
   }
 

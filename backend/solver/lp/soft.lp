@@ -122,7 +122,9 @@ back_preferred_dist(S, D) :-
 
 % 補助①: 横隣（グループを跨いでよい、同じ行で列が 1 差）
 % S < S2 で片方向ペアのみ生成してファクト数を半減（対称性は _same_gender の2ルールで対応）
+% opt_loneliness をボディに含めることで、トグル OFF 時は O(N^2) の grounding 自体を省く
 loneliness_peer(S, S2) :-
+    opt_loneliness,
     assign(S, R1), assign(S2, R2), S < S2,
     seat(R1, Row, Col1), seat(R2, Row, Col2),
     |Col1 - Col2| = 1.
@@ -130,6 +132,7 @@ loneliness_peer(S, S2) :-
 % 補助②: 同班の他メンバー（横隣でなくてもよい）
 % S < S2 で片方向ペアのみ生成してファクト数を半減
 loneliness_peer(S, S2) :-
+    opt_loneliness,
     in_group(S, G), in_group(S2, G), S < S2.
 
 % 補助: ピア集合に同性が存在するか（両方向チェックで意味論を保持）
