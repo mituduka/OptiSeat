@@ -192,6 +192,9 @@ export default function SeatingResult({
         <DragOverlay dropAnimation={{
           duration: 250,
           easing: 'ease-out',
+          // デフォルトの sideEffects はドラッグ元セルを opacity:0 で隠すが、
+          // このセルには交換相手が FLIP でスライドしてくるため隠してはならない
+          sideEffects: null,
           keyframes({ transform, dragOverlay }) {
             const overRect = dropTargetRectRef.current
             const initial = CSS.Transform.toString(transform.initial)
