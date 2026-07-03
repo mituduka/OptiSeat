@@ -771,7 +771,7 @@ export default function SettingsPage() {
                       {fixedRelativeConflicts.map((c, i) => {
                         const nameA = students.find((s) => s.id === c.studentIdA)?.name ?? `ID${c.studentIdA}`
                         const nameB = students.find((s) => s.id === c.studentIdB)?.name ?? `ID${c.studentIdB}`
-                        return <div key={`fr-${i}`}>{nameA}（{c.rowA}行{c.colA}列）と {nameB}（{c.rowB}行{c.colB}列）: {CONSTRAINT_DEFS.relative_fixed.short}（+{c.dRow}行{c.dCol >= 0 ? '+' : ''}{c.dCol}列）の条件を満たしていません</div>
+                        return <div key={`fr-${i}`}>{nameA}（{c.rowA}行{c.colA}列）と {nameB}（{c.rowB}行{c.colB}列）: {CONSTRAINT_DEFS.relative_fixed.short}（{c.dRow >= 0 ? '+' : ''}{c.dRow}行{c.dCol >= 0 ? '+' : ''}{c.dCol}列）の条件を満たしていません</div>
                       })}
                       {fixedSameGroupConflicts.map((c, i) => {
                         const nameA = students.find((s) => s.id === c.studentIdA)?.name ?? `ID${c.studentIdA}`
@@ -1132,7 +1132,7 @@ export default function SettingsPage() {
                       {fixedRelativeConflicts.map((c, i) => {
                         const nameA = students.find((s) => s.id === c.studentIdA)?.name ?? `ID${c.studentIdA}`
                         const nameB = students.find((s) => s.id === c.studentIdB)?.name ?? `ID${c.studentIdB}`
-                        return <div key={`frr-${i}`}>{nameA}（固定: {c.rowA}行{c.colA}列）と {nameB}（固定: {c.rowB}行{c.colB}列）: {CONSTRAINT_DEFS.relative_fixed.short}（+{c.dRow}行{c.dCol >= 0 ? '+' : ''}{c.dCol}列）の条件を満たしていません</div>
+                        return <div key={`frr-${i}`}>{nameA}（固定: {c.rowA}行{c.colA}列）と {nameB}（固定: {c.rowB}行{c.colB}列）: {CONSTRAINT_DEFS.relative_fixed.short}（{c.dRow >= 0 ? '+' : ''}{c.dRow}行{c.dCol >= 0 ? '+' : ''}{c.dCol}列）の条件を満たしていません</div>
                       })}
                     </div>
                   </div>

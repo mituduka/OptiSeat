@@ -41,6 +41,7 @@ interface SolutionTabsProps {
   prevAssign: PrevAssignment[]
   constraintToggles: ConstraintToggles
   leaderGroups?: LeaderGroup[]
+  emptySeats?: { row: number; col: number }[]
 }
 
 export default function SolutionTabs({
@@ -62,6 +63,7 @@ export default function SolutionTabs({
   prevAssign,
   constraintToggles,
   leaderGroups = [],
+  emptySeats = [],
 }: SolutionTabsProps) {
   if (solutions.length === 0) return null
 
@@ -140,6 +142,7 @@ export default function SolutionTabs({
           prevAssign={prevAssign}
           leaderGroups={leaderGroups}
           showAllLeaderGroups
+          emptySeats={emptySeats}
           constraintToggles={constraintToggles}
           showViolationDetail
         />
