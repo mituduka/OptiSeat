@@ -3,7 +3,7 @@ clingo>=5.8.0
 clorm>=1.6.2
 
 # Web フレームワーク
-fastapi>=0.138.1
+fastapi>=0.139.0
 uvicorn[standard]>=0.49.0
 pydantic>=2.13.4
 
