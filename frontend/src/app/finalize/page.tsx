@@ -25,7 +25,16 @@ function swapAssignments(
   })
 }
 
+// localStorage からのデータ復元（hydration）が終わるまで本体をマウントしない。
+// 復元前にマウントすると useState(initialAssignments) が空のストアから初期値を
+// 確定させてしまい、/finalize の直接ロード時に配置があっても全席「空席」になる
 export default function FinalizePage() {
+  const hydrated = useHasHydrated()
+  if (!hydrated) return null
+  return <FinalizeContent />
+}
+
+function FinalizeContent() {
   const router = useRouter()
   const {
     students,
@@ -44,8 +53,6 @@ export default function FinalizePage() {
     constraintToggles,
     leaderGroups,
   } = useStore()
-
-  const hydrated = useHasHydrated()
 
   const { numRows, numCols, frontRowCount, backRowCount, emptySeats, numGroups } = seat
 
@@ -153,9 +160,6 @@ export default function FinalizePage() {
       ]}
     />
   )
-
-  // localStorage からのデータ復元が終わるまで描画しない（配置があるのに「採用された配置がありません」が一瞬見えるのを防ぐ）
-  if (!hydrated) return null
 
   if (!adjustingAssignments && !adoptedAssignments && !finalizedAssignments) {
     return (

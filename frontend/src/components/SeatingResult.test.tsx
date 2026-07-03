@@ -3,10 +3,16 @@ import { render, screen } from '@testing-library/react'
 import SeatingResult from './SeatingResult'
 import type { ScoreBreakdown } from '@/types'
 
+// DragOverlay に渡された props を検証用にキャプチャ
+let capturedDragOverlayProps: Record<string, unknown> = {}
+
 // @dnd-kit は JSDOM で動作しないためモック
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  DragOverlay: () => null,
+  DragOverlay: (props: Record<string, unknown>) => {
+    capturedDragOverlayProps = props
+    return null
+  },
   useDraggable: () => ({
     attributes: {},
     listeners: {},
@@ -72,5 +78,16 @@ describe('SeatingResult 座席グリッドの表示', () => {
   it('学生名がグリッドに表示される', () => {
     render(<SeatingResult {...BASE_PROPS} />)
     expect(screen.getByText('テスト')).toBeInTheDocument()
+  })
+})
+
+describe('SeatingResult DragOverlay の dropAnimation', () => {
+  it('sideEffects を null にしてドラッグ元セルを隠さない（FLIP スライドを可視に保つ）', () => {
+    // dnd-kit デフォルトの sideEffects はドロップアニメ中アクティブノードを
+    // opacity:0 にするが、そのセルには交換相手が FLIP でスライドしてくるため、
+    // 隠すとスライドアニメーションが丸ごと不可視になる
+    render(<SeatingResult {...BASE_PROPS} draggable />)
+    const dropAnimation = capturedDragOverlayProps.dropAnimation as { sideEffects: unknown }
+    expect(dropAnimation.sideEffects).toBeNull()
   })
 })

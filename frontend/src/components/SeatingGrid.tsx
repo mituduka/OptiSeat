@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Pin } from 'lucide-react'
 import { generateSeats } from '@/lib/seats'
@@ -77,6 +77,14 @@ export default function SeatingGrid({
   onSeatTap,
 }: SeatingGridProps) {
   const [tooltip, setTooltip] = useState<{ texts: string[]; x: number; y: number } | null>(null)
+
+  // FLIP 用オフセットは参照を安定させる。毎レンダー新規オブジェクトを渡すと、
+  // ツールチップ表示（setTooltip）の再レンダーで DraggableSeat 側の
+  // アニメーション effect が再発火し、途中のアニメーションが最初からやり直しになる
+  const flipDelta = useMemo(
+    () => (flipAnim ? { x: flipAnim.dx, y: flipAnim.dy } : null),
+    [flipAnim],
+  )
 
   const seats = generateSeats(numRows, numCols)
 
@@ -434,7 +442,7 @@ export default function SeatingGrid({
                           seatId={seat.id}
                           isDraggable={draggable && !isExcluded && !tapMode}
                           isDropDisabled={isExcluded}
-                          flipDelta={flipAnim?.seatId === seat.id ? { x: flipAnim.dx, y: flipAnim.dy } : null}
+                          flipDelta={flipAnim?.seatId === seat.id ? flipDelta : null}
                           onFlipDone={onFlipDone}
                           style={!isEmpty && !isExcluded ? groupStyle : {}}
                           className={cellClassName}

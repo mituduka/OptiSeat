@@ -172,6 +172,37 @@ describe('SeatingGrid セル違反ツールチップ', () => {
     expect(screen.getByText('前側配慮違反')).toBeInTheDocument()
   })
 
+  it('ツールチップ表示の再レンダーで FLIP アニメーションが再発火しない', () => {
+    // FLIP effect は発火のたびに transitionend リスナーを登録するため、
+    // その追加回数でアニメーションのやり直し（バグ）を検出する
+    const addListenerSpy = vi.spyOn(EventTarget.prototype, 'addEventListener')
+    const student2: Student = { ...FEMALE, tags: ['front_preferred'] }
+    render(
+      <SeatingGrid
+        {...BASE_PROPS}
+        students={[MALE, student2]}
+        assignments={[
+          { student_id: 1, seat_id: 1 },
+          { student_id: 2, seat_id: 3 },  // row=2 → 前側配慮違反
+        ]}
+        flipAnim={{ seatId: 1, dx: 80, dy: 0 }}
+        showViolationDetail={true}
+      />,
+    )
+    const countFlipListeners = () =>
+      addListenerSpy.mock.calls.filter((c) => c[0] === 'transitionend').length
+    const before = countFlipListeners()
+
+    // 違反セルのホバーでツールチップが表示され SeatingGrid が再レンダーされる
+    const studentEl = screen.getByText('テスト花子')
+    fireEvent.mouseEnter(studentEl.parentElement!)
+    expect(screen.getByText('前側配慮違反')).toBeInTheDocument()
+
+    // FLIP effect が再実行されていない（リスナーの再登録なし）
+    expect(countFlipListeners()).toBe(before)
+    addListenerSpy.mockRestore()
+  })
+
   it('showViolationDetail=false のときセルをホバーしてもツールチップが表示されない', () => {
     const student: Student = { ...MALE, tags: ['front_preferred'] }
     render(
