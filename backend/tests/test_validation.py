@@ -145,6 +145,35 @@ class TestFixedConstraintValidation:
         warnings = run_validation(_req(constraints))
         assert len(warnings) >= 2
 
+    def test_same_student_fixed_to_multiple_seats(self):
+        """同じ人を複数の座席に固定 → FIXED_STUDENT_CONFLICT。"""
+        constraints = {
+            "fixed": [
+                {"student_id": 1, "seat_id": 1},
+                {"student_id": 1, "seat_id": 2},
+            ],
+            "forbidden": [],
+            "seat_gender": [],
+            "relative_fixed": [],
+        }
+        warnings = run_validation(_req(constraints))
+        codes = [w.code for w in warnings]
+        assert "FIXED_STUDENT_CONFLICT" in codes
+
+    def test_different_students_no_student_conflict(self):
+        constraints = {
+            "fixed": [
+                {"student_id": 1, "seat_id": 1},
+                {"student_id": 2, "seat_id": 2},
+            ],
+            "forbidden": [],
+            "seat_gender": [],
+            "relative_fixed": [],
+        }
+        warnings = run_validation(_req(constraints))
+        codes = [w.code for w in warnings]
+        assert "FIXED_STUDENT_CONFLICT" not in codes
+
 
 # ---------------------------------------------------------------------------
 # forbidden 制約チェック
@@ -219,6 +248,25 @@ class TestSeatGenderValidation:
         warnings = run_validation(_req(constraints))
         codes = [w.code for w in warnings]
         assert "GENDER_FIXED_CONFLICT" not in codes
+
+    def test_gender_conflict_detected_with_duplicate_fixed(self):
+        """同一座席に複数人固定されていても性別矛盾を見逃さない。
+
+        以前は {seat_id: student_id} の dict で後勝ち上書きされていたため、
+        先に登録された生徒の性別矛盾を見逃していた（回帰テスト）。
+        """
+        constraints = {
+            "fixed": [
+                {"student_id": 1, "seat_id": 1},  # student1 = male（矛盾）
+                {"student_id": 2, "seat_id": 1},  # student2 = female（一致）
+            ],
+            "forbidden": [],
+            "seat_gender": [{"seat_id": 1, "allowed_gender": "female"}],
+            "relative_fixed": [],
+        }
+        warnings = run_validation(_req(constraints))
+        codes = [w.code for w in warnings]
+        assert "GENDER_FIXED_CONFLICT" in codes
 
 
 # ---------------------------------------------------------------------------

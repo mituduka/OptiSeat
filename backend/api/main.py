@@ -33,7 +33,12 @@ app = FastAPI(
 # CORS設定（フロントエンドとの通信用）
 # Cookie 等の資格情報は使用しないため allow_credentials は付けない
 # （CORS_ORIGINS にワイルドカードを設定された場合の安全側の既定）。
-_cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+# カンマ区切りの各オリジンは前後の空白を除去する（"https://a.com, https://b.com" 対応）
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,

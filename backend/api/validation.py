@@ -17,6 +17,7 @@ def run_validation(request: ValidateRequest) -> list[ValidationWarning]:
       - fixed/forbidden の student_id が students に存在するか
       - fixed の seat_id が seats に存在するか
       - fixed で同じ座席に複数人が固定されていないか
+      - fixed で同じ人が複数の座席に固定されていないか
       - seat_gender と fixed の矛盾
       - relative_fixed の student_id が students に存在するか
       - relative_fixed と forbidden8 の矛盾
@@ -34,6 +35,7 @@ def run_validation(request: ValidateRequest) -> list[ValidationWarning]:
 
     # fixed 制約のチェック
     fixed_seat_usage: dict[int, list[int]] = {}  # seat_id → [student_id, ...]
+    fixed_student_usage: dict[int, list[int]] = {}  # student_id → [seat_id, ...]
     for f in request.constraints.fixed:
         if f.student_id not in student_ids:
             warnings.append(
@@ -50,6 +52,7 @@ def run_validation(request: ValidateRequest) -> list[ValidationWarning]:
                 )
             )
         fixed_seat_usage.setdefault(f.seat_id, []).append(f.student_id)
+        fixed_student_usage.setdefault(f.student_id, []).append(f.seat_id)
 
     # 同一座席への複数固定チェック
     for seat_id, sids in fixed_seat_usage.items():
@@ -60,6 +63,19 @@ def run_validation(request: ValidateRequest) -> list[ValidationWarning]:
                     message=(
                         f"{seat_label(seat_id)} に複数人が固定されています: "
                         f"{'、'.join(f'ID:{s}' for s in sids)}"
+                    ),
+                )
+            )
+
+    # 同一人物の複数座席への固定チェック（H-03 により必ず解なしになる）
+    for student_id, seat_ids_fixed in fixed_student_usage.items():
+        if len(seat_ids_fixed) > 1:
+            warnings.append(
+                ValidationWarning(
+                    code="FIXED_STUDENT_CONFLICT",
+                    message=(
+                        f"ID:{student_id} が複数の座席に固定されています: "
+                        f"{'、'.join(seat_label(s) for s in seat_ids_fixed)}"
                     ),
                 )
             )
@@ -82,7 +98,6 @@ def run_validation(request: ValidateRequest) -> list[ValidationWarning]:
             )
 
     # seat_gender 制約のチェック
-    fixed_map = {f.seat_id: f.student_id for f in request.constraints.fixed}
     student_gender_map = {s.id: s.gender for s in request.students}
     for sgc in request.constraints.seat_gender:
         if sgc.seat_id not in seat_ids:
@@ -93,8 +108,8 @@ def run_validation(request: ValidateRequest) -> list[ValidationWarning]:
                 )
             )
         # 固定制約との矛盾チェック
-        fixed_sid = fixed_map.get(sgc.seat_id)
-        if fixed_sid is not None:
+        # （同一座席に複数人が固定されている場合も全員分を検出する）
+        for fixed_sid in fixed_seat_usage.get(sgc.seat_id, []):
             student_gender = student_gender_map.get(fixed_sid)
             if (
                 student_gender is not None
