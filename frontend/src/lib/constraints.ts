@@ -41,7 +41,45 @@ export interface FixedRelativeConflict {
   dCol: number  // 要求されていた相対オフセット
 }
 
+export interface GenderCapacityConflict {
+  gender: 'male' | 'female'
+  studentCount: number
+  seatCapacity: number
+}
+
 // --- 検出関数 ---
+
+/**
+ * 性別ごとの人数が配置可能な座席数を超えているケースを返す。
+ * 性別指定のない座席は両性別を配置できる。超過すると必ず解なしになる（鳩の巣原理）。
+ * seats には有効座席（空席を除いたもの）を渡すこと。
+ */
+export function detectGenderCapacityConflicts(
+  students: Student[],
+  seatGenderConstraints: SeatGenderConstraint[],
+  seats: { row: number; col: number }[],
+): GenderCapacityConflict[] {
+  const allowedBySeat = new Map<string, Set<'male' | 'female'>>()
+  for (const sgc of seatGenderConstraints) {
+    const key = `${sgc.row},${sgc.col}`
+    if (!allowedBySeat.has(key)) allowedBySeat.set(key, new Set())
+    allowedBySeat.get(key)!.add(sgc.allowedGender)
+  }
+
+  const conflicts: GenderCapacityConflict[] = []
+  for (const gender of ['male', 'female'] as const) {
+    const studentCount = students.filter((s) => s.gender === gender).length
+    if (studentCount === 0) continue
+    const seatCapacity = seats.filter((seat) => {
+      const allowed = allowedBySeat.get(`${seat.row},${seat.col}`)
+      return !allowed || allowed.has(gender)
+    }).length
+    if (studentCount > seatCapacity) {
+      conflicts.push({ gender, studentCount, seatCapacity })
+    }
+  }
+  return conflicts
+}
 
 /**
  * 性別配置制約と座席固定の矛盾を返す。

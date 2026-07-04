@@ -404,3 +404,67 @@ class TestLeaderGroupValidation:
         ]
         assert any("998" in m for m in unknown_msgs)
         assert any("999" in m for m in unknown_msgs)
+
+
+# ---------------------------------------------------------------------------
+# 性別容量チェック（鳩の巣）
+# ---------------------------------------------------------------------------
+
+
+class TestGenderCapacityValidation:
+    def test_gender_capacity_exceeded(self):
+        """男性2人に対し男性が座れる座席が1席しかない場合は警告を出す。"""
+        # _STUDENTS: 男性2人（ID:1,3）・女性1人（ID:2）、座席は2×2の4席
+        constraints = {
+            "fixed": [],
+            "forbidden": [],
+            "seat_gender": [
+                {"seat_id": 1, "allowed_gender": "female"},
+                {"seat_id": 2, "allowed_gender": "female"},
+                {"seat_id": 3, "allowed_gender": "female"},
+            ],
+            "relative_fixed": [],
+        }
+        warnings = run_validation(_req(constraints))
+        capacity_warnings = [
+            w for w in warnings if w.code == "GENDER_CAPACITY_EXCEEDED"
+        ]
+        assert len(capacity_warnings) == 1
+        assert "男性" in capacity_warnings[0].message
+        assert "2人" in capacity_warnings[0].message
+        assert "1席" in capacity_warnings[0].message
+
+    def test_gender_capacity_exact_fit_no_warning(self):
+        """人数と容量がちょうど一致する場合は警告を出さない。"""
+        # 男性2人に対し男性が座れる座席2席（女性専用2席）
+        constraints = {
+            "fixed": [],
+            "forbidden": [],
+            "seat_gender": [
+                {"seat_id": 1, "allowed_gender": "female"},
+                {"seat_id": 2, "allowed_gender": "female"},
+            ],
+            "relative_fixed": [],
+        }
+        warnings = run_validation(_req(constraints))
+        codes = [w.code for w in warnings]
+        assert "GENDER_CAPACITY_EXCEEDED" not in codes
+
+    def test_gender_capacity_no_constraints_no_warning(self):
+        """性別制約がなければ容量警告を出さない。"""
+        warnings = run_validation(_req())
+        codes = [w.code for w in warnings]
+        assert "GENDER_CAPACITY_EXCEEDED" not in codes
+
+    def test_gender_capacity_unknown_seat_ignored(self):
+        """存在しない座席への性別制約は容量計算から除外する。"""
+        constraints = {
+            "fixed": [],
+            "forbidden": [],
+            "seat_gender": [{"seat_id": 999, "allowed_gender": "female"}],
+            "relative_fixed": [],
+        }
+        warnings = run_validation(_req(constraints))
+        codes = [w.code for w in warnings]
+        assert "UNKNOWN_SEAT_ID" in codes
+        assert "GENDER_CAPACITY_EXCEEDED" not in codes
