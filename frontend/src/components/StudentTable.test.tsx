@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import StudentTable from './StudentTable'
 import { useStore } from '@/lib/store'
@@ -64,6 +64,28 @@ describe('StudentTable', () => {
 
     await user.type(screen.getByRole('textbox', { name: '氏名' }), '田中 花子{Enter}')
     expect(screen.getByText('田中 花子')).toBeInTheDocument()
+  })
+
+  it('IME 変換中（isComposing）の Enter では追加されない', async () => {
+    const user = userEvent.setup()
+    render(<StudentTable />)
+
+    const input = screen.getByRole('textbox', { name: '氏名' })
+    await user.type(input, 'たなか')
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+
+    expect(useStore.getState().students).toHaveLength(0)
+  })
+
+  it('Safari 相当（keyCode 229）の Enter では追加されない', async () => {
+    const user = userEvent.setup()
+    render(<StudentTable />)
+
+    const input = screen.getByRole('textbox', { name: '氏名' })
+    await user.type(input, 'たなか')
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
+
+    expect(useStore.getState().students).toHaveLength(0)
   })
 
   it('氏名が空のとき追加ボタンが無効化される', () => {
