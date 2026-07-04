@@ -72,6 +72,34 @@
    seat_gender_constraint(R, AllowedGender),
    StuGender != AllowedGender.
 
+% 補助: 性別ごとの容量チェック（冗長制約）
+%
+% 「性別 G の人数 > G が座れる座席数」は鳩の巣原理により必ず解なしだが、
+% 上記の割り当てレベルの制約だけでは CDCL ソルバが探索の枚挙でしか
+% 証明できず、UNSAT の確定に指数時間かかる（タイムアウトの原因になる）。
+% 人数と座席数はグラウンド時に定数として評価されるため、
+% このカウント制約により容量超過の UNSAT が即座に確定する。
+
+gender_domain(G) :- student(_, G).
+
+% 座席 R に性別 G 以外の専用指定があるか
+seat_gender_excluded(R, G) :-
+   seat(R, _, _),
+   gender_domain(G),
+   seat_gender_constraint(R, AllowedGender),
+   G != AllowedGender.
+
+% 座席 R に性別 G を配置できるか（専用指定なし、または G 指定）
+seat_allows_gender(R, G) :-
+   seat(R, _, _),
+   gender_domain(G),
+   not seat_gender_excluded(R, G).
+
+:- gender_domain(G),
+   N = #count { S : student(S, G) },
+   C = #count { R : seat_allows_gender(R, G) },
+   N > C.
+
 
 %-----------------------------------------------------------------------------
 % H-08: 相対的固定制約（隣接固定制約）

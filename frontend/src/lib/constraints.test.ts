@@ -1,4 +1,5 @@
 import {
+  detectGenderCapacityConflicts,
   detectGenderFixedConflicts,
   detectRelativeFixedForbiddenConflicts,
   detectFixedSeatConflicts,
@@ -14,6 +15,81 @@ const students: Student[] = [
   { id: 1, name: '山田 太郎', gender: 'male', tags: [] },
   { id: 2, name: '鈴木 花子', gender: 'female', tags: [] },
 ]
+
+describe('detectGenderCapacityConflicts', () => {
+  // 2×2 の4席
+  const seats = [
+    { row: 1, col: 1 },
+    { row: 1, col: 2 },
+    { row: 2, col: 1 },
+    { row: 2, col: 2 },
+  ]
+  const roster = (males: number, females: number): Student[] => [
+    ...Array.from({ length: males }, (_, i) => ({
+      id: i + 1, name: `男${i + 1}`, gender: 'male' as const, tags: [],
+    })),
+    ...Array.from({ length: females }, (_, i) => ({
+      id: males + i + 1, name: `女${i + 1}`, gender: 'female' as const, tags: [],
+    })),
+  ]
+
+  it('性別ごとの人数が配置可能な座席数を超える場合に検出する', () => {
+    // 女性専用3席 → 男性可は1席のみ、男性2人で超過
+    const result = detectGenderCapacityConflicts(
+      roster(2, 1),
+      [
+        { row: 1, col: 1, allowedGender: 'female' },
+        { row: 1, col: 2, allowedGender: 'female' },
+        { row: 2, col: 1, allowedGender: 'female' },
+      ],
+      seats,
+    )
+    expect(result).toEqual([{ gender: 'male', studentCount: 2, seatCapacity: 1 }])
+  })
+
+  it('人数と容量がちょうど一致する場合は検出しない', () => {
+    const result = detectGenderCapacityConflicts(
+      roster(2, 2),
+      [
+        { row: 1, col: 1, allowedGender: 'female' },
+        { row: 1, col: 2, allowedGender: 'female' },
+      ],
+      seats,
+    )
+    expect(result).toHaveLength(0)
+  })
+
+  it('性別指定のない座席は両性別を配置できる', () => {
+    const result = detectGenderCapacityConflicts(
+      roster(3, 1),
+      [{ row: 1, col: 1, allowedGender: 'female' }],
+      seats,
+    )
+    expect(result).toHaveLength(0)
+  })
+
+  it('配置可能な座席が0席でも検出する', () => {
+    // 唯一の有効座席が男性専用 → 女性の容量は0席
+    const result = detectGenderCapacityConflicts(
+      roster(1, 1),
+      [{ row: 1, col: 1, allowedGender: 'male' }],
+      [{ row: 1, col: 1 }],
+    )
+    expect(result).toEqual([
+      { gender: 'female', studentCount: 1, seatCapacity: 0 },
+    ])
+  })
+
+  it('有効座席リストにない座席への制約は無視する', () => {
+    // (1,1) は空席扱い（seats に含めない）→ 制約は容量に影響しない
+    const result = detectGenderCapacityConflicts(
+      roster(2, 1),
+      [{ row: 1, col: 1, allowedGender: 'female' }],
+      seats.slice(1),
+    )
+    expect(result).toHaveLength(0)
+  })
+})
 
 describe('detectGenderFixedConflicts', () => {
   it('性別が一致しない場合に矛盾を検出する', () => {

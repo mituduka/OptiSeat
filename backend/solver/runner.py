@@ -79,6 +79,8 @@ def run_solver(
                    解なし（UNSAT）の場合は空リスト []。
         timed_out: いずれかのショットでタイムアウトが発生した場合 True。
                    False かつ solutions が空なら確定 UNSAT。
+                   確定 UNSAT が証明された場合は、先行ショットがタイムアウト
+                   していても False を返す（解なしが確定しているため）。
 
     Raises:
         RuntimeError: ソルバ内部エラー発生時
@@ -205,6 +207,9 @@ def run_solver(
                 if solve_result.unsatisfiable and solve_result.exhausted:
                     # 確定 UNSAT: 全ショットで同一グラウンドを共有するため
                     # 以降のショットも必ず解なし。早期終了する。
+                    # 先行ショットがタイムアウトしていても解なしは確定なので、
+                    # timeout ではなく unsatisfiable として報告する。
+                    any_timed_out = False
                     break
 
         result = best_result[0]

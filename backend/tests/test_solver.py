@@ -606,6 +606,75 @@ class TestNewConstraintTypes:
             solutions == []
         ), f"女性が配置できる座席がないのに解が返った: {solutions}"
 
+    def test_seat_gender_capacity_unsat_fast(self) -> None:
+        """H-06 容量チェック: 性別ごとの人数が配置可能な座席数を超える場合、
+        鳩の巣構造でも探索の枚挙に陥らず即座に確定 UNSAT になること。
+
+        全30席に性別指定（男性18・女性12）で女性が15人のケース。
+        カウント制約がないと CDCL の UNSAT 証明が指数時間かかり
+        タイムアウトするため、timed_out=False の確認が本質的な検証。
+        """
+        seats = [
+            {"id": (r - 1) * 6 + c, "row": r, "col": c}
+            for r in range(1, 6)
+            for c in range(1, 7)
+        ]
+        students = [
+            {"id": i, "gender": "male" if i <= 15 else "female", "tags": []}
+            for i in range(1, 31)
+        ]
+        # 座席1〜18は男性専用、19〜30は女性専用（女性可12席 < 女性15人）
+        seat_gender = [
+            {"seat_id": s["id"], "allowed_gender": "male" if s["id"] <= 18 else "female"}
+            for s in seats
+        ]
+        data = {
+            "students": students,
+            "seats": seats,
+            "classroom": {"num_rows": 5, "num_cols": 6, "front_rows": [1]},
+            "groups": [],
+            "constraints": {
+                "fixed": [],
+                "forbidden": [],
+                "seat_gender": seat_gender,
+            },
+            "prev_assign": [],
+        }
+        solutions, timed_out = run_solver(data, timeout=5)
+        assert solutions == [], f"容量超過なのに解が返った: {solutions}"
+        assert timed_out is False, "確定 UNSAT がタイムアウト扱いになっている"
+
+    def test_seat_gender_capacity_exact_fit_sat(self) -> None:
+        """H-06 容量チェック: 人数と容量がちょうど一致する場合は解が存在すること。"""
+        seats = [
+            {"id": (r - 1) * 6 + c, "row": r, "col": c}
+            for r in range(1, 6)
+            for c in range(1, 7)
+        ]
+        # 男性18人・女性12人 = 専用座席数とちょうど一致
+        students = [
+            {"id": i, "gender": "male" if i <= 18 else "female", "tags": []}
+            for i in range(1, 31)
+        ]
+        seat_gender = [
+            {"seat_id": s["id"], "allowed_gender": "male" if s["id"] <= 18 else "female"}
+            for s in seats
+        ]
+        data = {
+            "students": students,
+            "seats": seats,
+            "classroom": {"num_rows": 5, "num_cols": 6, "front_rows": [1]},
+            "groups": [],
+            "constraints": {
+                "fixed": [],
+                "forbidden": [],
+                "seat_gender": seat_gender,
+            },
+            "prev_assign": [],
+        }
+        solutions, _ = run_solver(data, max_solutions=1, timeout=10)
+        assert solutions, "容量ちょうどの配置に解が存在しない"
+
     def test_relative_fixed_right(self) -> None:
         """H-08: 児童・生徒1の右隣(0,+1)に児童・生徒2が配置されること。"""
         data = {

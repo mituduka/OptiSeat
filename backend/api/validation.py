@@ -19,6 +19,7 @@ def run_validation(request: ValidateRequest) -> list[ValidationWarning]:
       - fixed で同じ座席に複数人が固定されていないか
       - fixed で同じ人が複数の座席に固定されていないか
       - seat_gender と fixed の矛盾
+      - 性別ごとの人数が配置可能な座席数を超えていないか（鳩の巣チェック）
       - relative_fixed の student_id が students に存在するか
       - relative_fixed と forbidden8 の矛盾
     """
@@ -124,6 +125,36 @@ def run_validation(request: ValidateRequest) -> list[ValidationWarning]:
                         ),
                     )
                 )
+
+    # 性別ごとの容量チェック（鳩の巣）
+    # 性別制約のない座席は両性別可。性別 G が座れる座席数 =
+    # 全座席数 − G 以外の性別専用の座席数。人数が超過すると必ず解なしになる。
+    seat_allowed_genders: dict[int, set[str]] = {}
+    for sgc in request.constraints.seat_gender:
+        if sgc.seat_id in seat_ids:
+            seat_allowed_genders.setdefault(sgc.seat_id, set()).add(
+                sgc.allowed_gender
+            )
+    gender_counts: dict[str, int] = {}
+    for s in request.students:
+        gender_counts[s.gender.value] = gender_counts.get(s.gender.value, 0) + 1
+    for gender, count in gender_counts.items():
+        capacity = sum(
+            1
+            for sid in seat_ids
+            if gender in seat_allowed_genders.get(sid, {"male", "female"})
+        )
+        if count > capacity:
+            gender_label = "男性" if gender == "male" else "女性"
+            warnings.append(
+                ValidationWarning(
+                    code="GENDER_CAPACITY_EXCEEDED",
+                    message=(
+                        f"{gender_label}の児童・生徒が{count}人いますが、"
+                        f"{gender_label}が配置できる座席は{capacity}席しかありません。"
+                    ),
+                )
+            )
 
     # relative_fixed 制約のチェック
     for rf in request.constraints.relative_fixed:

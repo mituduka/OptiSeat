@@ -6,6 +6,7 @@ import { TriangleAlert, OctagonAlert, LayoutGrid, FileSliders, Users, Group, Sch
 import { useSolve } from '@/hooks/useSolve'
 import { useHasHydrated } from '@/hooks/useHasHydrated'
 import { computeConflicts } from '@/components/ConflictAlerts'
+import { detectGenderCapacityConflicts } from '@/lib/constraints'
 import ConflictAlerts from '@/components/ConflictAlerts'
 import SolutionTabs from '@/components/SolutionTabs'
 import HelpPanel from '@/components/HelpPanel'
@@ -132,6 +133,13 @@ export default function SolvePage() {
     capacityIssues.push('名簿にメンバーが登録されていません。名簿画面からメンバーを追加してください。')
   } else if (students.length > seats.length) {
     capacityIssues.push(`児童・生徒数（${students.length}人）が有効座席数（${seats.length}席）を超えています。座席設定を見直してください。`)
+  } else {
+    for (const c of detectGenderCapacityConflicts(students, seatGenderConstraints, seats)) {
+      const label = c.gender === 'male' ? '男性' : '女性'
+      capacityIssues.push(
+        `${label}の児童・生徒（${c.studentCount}人）が${label}を配置できる座席数（${c.seatCapacity}席）を超えています。${CONSTRAINT_DEFS.gender_constraint.short}を見直してください。`,
+      )
+    }
   }
   const hasCapacityIssues = capacityIssues.length > 0
 
