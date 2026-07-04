@@ -662,3 +662,109 @@ class TestSolverErrorHandling:
         data = resp.json()
         assert data["status"] in ("unsatisfiable", "timeout")
         assert data["error"]["code"] == "SOLVER_ERROR"
+
+
+# ===========================================================================
+# 入力の防御的検証（重複・値域チェック → 422）
+# ===========================================================================
+
+
+class TestDefensiveInputValidation:
+    """schemas.py の防御的検証。
+
+    フロントエンドは正しい値しか送らないが、API は単体でも公開されるため
+    （/docs 参照）、不正入力は 422 で明示的に拒否する。範囲外の front_rows 等は
+    ソルバをクラッシュさせないものの最適化を静かに歪めるため、黙って受理しない。
+    """
+
+    def test_duplicate_student_id_rejected(self):
+        req = dict(SAMPLE_REQUEST)
+        req["students"] = SAMPLE_REQUEST["students"][:-1] + [
+            {**SAMPLE_REQUEST["students"][0]}  # 先頭の生徒と同じ id
+        ]
+        resp = client.post("/api/v1/solve", json=req)
+        assert resp.status_code == 422
+
+    def test_duplicate_seat_id_rejected(self):
+        req = dict(SAMPLE_REQUEST)
+        seats = [dict(s) for s in SAMPLE_REQUEST["seats"]]
+        seats[1]["id"] = seats[0]["id"]
+        req["seats"] = seats
+        resp = client.post("/api/v1/solve", json=req)
+        assert resp.status_code == 422
+
+    def test_duplicate_seat_position_rejected(self):
+        req = dict(SAMPLE_REQUEST)
+        seats = [dict(s) for s in SAMPLE_REQUEST["seats"]]
+        seats[1]["row"] = seats[0]["row"]
+        seats[1]["col"] = seats[0]["col"]
+        req["seats"] = seats
+        resp = client.post("/api/v1/solve", json=req)
+        assert resp.status_code == 422
+
+    def test_seat_row_exceeding_max_rejected(self):
+        req = dict(SAMPLE_REQUEST)
+        seats = [dict(s) for s in SAMPLE_REQUEST["seats"]]
+        seats[0]["row"] = 999
+        req["seats"] = seats
+        resp = client.post("/api/v1/solve", json=req)
+        assert resp.status_code == 422
+
+    def test_front_rows_out_of_range_rejected(self):
+        req = dict(SAMPLE_REQUEST)
+        req["classroom"] = {**SAMPLE_REQUEST["classroom"], "front_rows": [99]}
+        resp = client.post("/api/v1/solve", json=req)
+        assert resp.status_code == 422
+
+    def test_back_rows_zero_rejected(self):
+        req = dict(SAMPLE_REQUEST)
+        req["classroom"] = {**SAMPLE_REQUEST["classroom"], "back_rows": [0, 1]}
+        resp = client.post("/api/v1/solve", json=req)
+        assert resp.status_code == 422
+
+    def test_duplicate_front_rows_rejected(self):
+        req = dict(SAMPLE_REQUEST)
+        req["classroom"] = {**SAMPLE_REQUEST["classroom"], "front_rows": [1, 1]}
+        resp = client.post("/api/v1/solve", json=req)
+        assert resp.status_code == 422
+
+    def test_empty_front_rows_accepted(self):
+        """front_rows=[] は「前側配慮エリアなし」の正当な設定（フロントは
+        frontRowCount=0 のときこれを送る）。拒否しないことを保証する回帰テスト。"""
+        req = dict(SAMPLE_REQUEST)
+        req["classroom"] = {**SAMPLE_REQUEST["classroom"], "front_rows": []}
+        resp = client.post("/api/v1/solve", json=req)
+        assert resp.status_code == 200
+
+    def test_validate_endpoint_rejects_duplicate_seats(self):
+        """/api/v1/validate も同じ防御的検証を共有していることを確認。"""
+        seats = [dict(s) for s in SAMPLE_REQUEST["seats"]]
+        seats[1]["id"] = seats[0]["id"]
+        resp = client.post(
+            "/api/v1/validate",
+            json={
+                "students": SAMPLE_REQUEST["students"],
+                "seats": seats,
+                "constraints": {},
+            },
+        )
+        assert resp.status_code == 422
+
+    def test_score_endpoint_rejects_out_of_range_front_rows(self):
+        """/api/v1/score も SeatConfig の値域検証を共有していることを確認。"""
+        resp = client.post(
+            "/api/v1/score",
+            json={
+                "assignments": [
+                    {"student_id": s["id"], "seat_id": s["id"]}
+                    for s in SAMPLE_REQUEST["students"]
+                ],
+                "students": SAMPLE_REQUEST["students"],
+                "seats": SAMPLE_REQUEST["seats"],
+                "classroom": {
+                    **SAMPLE_REQUEST["classroom"],
+                    "front_rows": [99],
+                },
+            },
+        )
+        assert resp.status_code == 422

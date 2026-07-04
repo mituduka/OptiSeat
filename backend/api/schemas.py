@@ -7,9 +7,9 @@ SolveRequest / SolveResponse および制約バリデーション専用スキー
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 from .config import (
     MAX_STUDENTS,
@@ -45,8 +45,52 @@ class StudentInput(BaseModel):
 
 class SeatInput(BaseModel):
     id: int = Field(..., ge=1)
-    row: int = Field(..., ge=1)
-    col: int = Field(..., ge=1)
+    row: int = Field(..., ge=1, le=SEAT_MAX_ROWS)
+    col: int = Field(..., ge=1, le=SEAT_MAX_COLS)
+
+
+def _validate_unique_students(
+    students: list[StudentInput],
+) -> list[StudentInput]:
+    """児童・生徒IDの重複を拒否する。"""
+    seen: set[int] = set()
+    for s in students:
+        if s.id in seen:
+            raise ValueError(f"児童・生徒ID {s.id} が重複しています")
+        seen.add(s.id)
+    return students
+
+
+def _validate_unique_seats(seats: list[SeatInput]) -> list[SeatInput]:
+    """座席IDと座標 (row, col) の重複を拒否する。"""
+    seen_ids: set[int] = set()
+    seen_pos: set[tuple[int, int]] = set()
+    for seat in seats:
+        if seat.id in seen_ids:
+            raise ValueError(f"座席ID {seat.id} が重複しています")
+        seen_ids.add(seat.id)
+        pos = (seat.row, seat.col)
+        if pos in seen_pos:
+            raise ValueError(
+                f"座席の座標（{seat.row}行{seat.col}列）が重複しています"
+            )
+        seen_pos.add(pos)
+    return seats
+
+
+# SolveRequest / ScoreRequest / ValidateRequest で共通の入力リスト型。
+# 要素数上限と重複チェックを一元管理する（不正入力は 422 で弾く防御的検証）
+StudentList = Annotated[
+    list[StudentInput],
+    Field(min_length=1, max_length=MAX_STUDENTS),
+    AfterValidator(_validate_unique_students),
+]
+
+SeatList = Annotated[
+    list[SeatInput],
+    Field(min_length=1, max_length=SEAT_MAX_ROWS * SEAT_MAX_COLS),
+    AfterValidator(_validate_unique_seats),
+]
 
 
 class SeatConfig(BaseModel):
@@ -60,6 +104,28 @@ class SeatConfig(BaseModel):
         default=None,
         description="後列とする行番号リスト（省略時は最終行を自動設定）",
     )
+
+    @model_validator(mode="after")
+    def validate_row_zones(self) -> SeatConfig:
+        """front_rows / back_rows の行番号が 1〜num_rows に収まり重複しないことを検証する。
+
+        範囲外の行番号はソルバをクラッシュさせないが、存在しない行への距離を
+        最小化しようとして最適化が静かに歪むため、入力時点で拒否する。
+        """
+        for name, rows in (
+            ("front_rows", self.front_rows),
+            ("back_rows", self.back_rows),
+        ):
+            if rows is None:
+                continue
+            if len(rows) != len(set(rows)):
+                raise ValueError(f"{name} に重複する行番号があります")
+            for row in rows:
+                if not 1 <= row <= self.num_rows:
+                    raise ValueError(
+                        f"{name} の行番号 {row} が範囲外です（1〜{self.num_rows}）"
+                    )
+        return self
 
 
 class FixedConstraint(BaseModel):
@@ -167,10 +233,8 @@ class GroupLayout(BaseModel):
 
 
 class SolveRequest(BaseModel):
-    students: list[StudentInput] = Field(
-        ..., min_length=1, max_length=MAX_STUDENTS
-    )
-    seats: list[SeatInput] = Field(..., min_length=1)
+    students: StudentList
+    seats: SeatList
     classroom: SeatConfig
     groups: list[GroupLayout] = Field(
         default_factory=list, description="班レイアウト定義（省略可）"
@@ -267,10 +331,8 @@ class SolveResponse(BaseModel):
 
 class ScoreRequest(BaseModel):
     assignments: list[AssignmentResult] = Field(..., min_length=1)
-    students: list[StudentInput] = Field(
-        ..., min_length=1, max_length=MAX_STUDENTS
-    )
-    seats: list[SeatInput] = Field(..., min_length=1)
+    students: StudentList
+    seats: SeatList
     classroom: SeatConfig
     groups: list[GroupLayout] = Field(default_factory=list)
     constraints: ConstraintConfig = Field(default_factory=ConstraintConfig)
@@ -287,10 +349,8 @@ class ScoreResponse(BaseModel):
 
 
 class ValidateRequest(BaseModel):
-    students: list[StudentInput] = Field(
-        ..., min_length=1, max_length=MAX_STUDENTS
-    )
-    seats: list[SeatInput] = Field(..., min_length=1)
+    students: StudentList
+    seats: SeatList
     constraints: ConstraintConfig = Field(default_factory=ConstraintConfig)
 
 
