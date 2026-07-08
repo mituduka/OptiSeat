@@ -388,6 +388,9 @@ export default function StudentTable() {
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    // IME 変換確定の Enter では追加しない。Safari は変換確定の keydown が
+    // compositionend の後に届き isComposing が false になるため keyCode 229 も除外する
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
     if (e.key === 'Enter') handleAdd()
   }
 
