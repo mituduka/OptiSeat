@@ -120,20 +120,25 @@ UI デザインは[デジタル庁デザインシステム](https://design.digit
 | ORM | clorm 1.6+ |
 | ASPファイル | `base.lp`（生成）/ `hard.lp`（必須制約）/ `soft.lp`（@5〜@1 辞書式最適化） |
 
-**マルチショット × マルチシード方式**
+**マルチショット × マルチシード × 距離制約方式**
 
 ```python
 ctrl = Control(["-n", "1", "--opt-mode=optN", "--heuristic=Domain",
-                f"--rand-freq={SOLVER_RAND_FREQ}", f"--seed={seeds[0]}",
+                f"--rand-freq={SOLVER_RAND_FREQ}", f"--seed={first_seed}",
                 f"--parallel-mode={max_workers}"])
-# .lp ロード + FactBase 投入 + ground()（grounding はここで1回のみ）
+# .lp ロード + FactBase 投入 + ground()（base の grounding はここで1回のみ）
 for shot in range(max_solutions):
-    ctrl.configuration.solver.seed = seeds[shot]  # ショットごとにランダムシードを変更
+    # ショットごとに全スレッドのシードを変更
+    for i in range(len(ctrl.configuration.solver)):
+        ctrl.configuration.solver[i].seed = str(random.randint(0, 2**31 - 1))
     # solve（per_shot_timeout = max(1, timeout / max_solutions) で打ち切り）
     # 最良解を frozenset キーで重複排除して収集
+    # 解が得られたら距離制約を追加 grounding:
+    #   divsolK(S, R) ファクト + 「一致座席数 <= N - min_diff」の integrity constraint
+    #   → 以降のショットは既出解から min_diff 人以上が動いた配置だけを探索
 ```
 
-単一の `Control` で grounding を1回だけ行い（multi-shot solving）、ショットごとに異なるランダムシードで探索して多様な解を収集する。詳細は [`asp-design.md` §4](./asp-design.md) を参照。
+単一の `Control` で base の grounding を1回だけ行い（multi-shot solving）、ショットごとに異なるランダムシードで探索する。解が得られるたびに距離制約（`SOLVER_MIN_DIFF_RATIO`、既定 0.5 = 生徒の半数以上が移動）を小さな program part として追加 grounding し、候補どうしが大きく異なる配置になることを保証する。十分に異なる解が尽きた場合（距離制約下の UNSAT）は件数を水増しせず打ち切る。詳細は [`asp-design.md` §4](./asp-design.md) を参照。
 
 ## 3. データフロー
 

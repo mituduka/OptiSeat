@@ -172,7 +172,8 @@ docker compose -f docker-compose.dev.yml up
 | `SOLVER_TIMEOUT_MAX` | 指定可能なタイムアウトの上限秒数 | `120` |
 | `SOLVER_MAX_SOLUTIONS_DEFAULT` | 取得する解候補数のデフォルト | `5` |
 | `SOLVER_MAX_SOLUTIONS_MAX` | 取得できる解候補数の上限 | `10` |
-| `SOLVER_RAND_FREQ` | clingo の `--rand-freq`（0〜1、探索のランダム性） | `1.0` |
+| `SOLVER_RAND_FREQ` | clingo の `--rand-freq`（0〜1、探索のランダム性。大きくすると解の品質が劣化） | `0.05` |
+| `SOLVER_MIN_DIFF_RATIO` | 解候補間の最小差分比率（0〜1）。候補どうしでこの比率以上の人数の座席が変わることを保証。`0` で無効 | `0.5` |
 | `SOLVER_WORKERS` | ソルバ並列実行のワーカー数 | CPU コア数 |
 
 > [!NOTE]  
