@@ -206,7 +206,7 @@ front_preferred_dist(S, D) :- tag(S, front_preferred), assign(S, R),
 
 > [!NOTE]
 > **探索誘導（`#heuristic`）**  
-> S-01/S-02 には `#heuristic assign(S,R) : tag(...), in_front/back(R). [2, true]` を指定し、配慮タグの児童・生徒を希望エリアに置いた状態から探索を始めさせる。最適解の定義は変えず、短い持ち時間でも良い解を早く得るための誘導。clingo 起動時に `--heuristic=Domain` が必要（`runner.py` で指定済み）で、ハード制約ではないため UNSAT にはならない。
+> S-01/S-02 には `#heuristic assign(S,R) : tag(...), in_front/back(R). [1, sign]` を指定し、配慮タグの児童・生徒が希望エリアの座席に置かれやすい状態で探索させる。最適解の定義は変えず、短い持ち時間でも良い解を早く得るための誘導。clingo 起動時に `--heuristic=Domain` が必要（`runner.py` で指定済み）で、ハード制約ではないため UNSAT にはならない。modifier に `true` でなく `sign` を使うのは、`true` が決定順を固定して配慮タグの児童・生徒を実行間・解候補間で毎回同じ席に張り付かせるため（`sign` は誘導効果を保ったままエリア内での席が分散する）。
 
 ## 4. Pythonオーケストレーター設計
 

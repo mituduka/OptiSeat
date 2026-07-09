@@ -55,9 +55,10 @@ front_preferred_dist(S, D) :-
 %                 priority が高いものから順に変数選択に反映される。
 %                 ここでは省略しているため 0 扱い
 %   - modifier  : 原子の真偽を「どう優先するか」を指定する
-%                   true  = その原子を true にすることを優先
-%                   false = その原子を false にすることを優先
-%                   sign  = VSIDS スコアの符号に従う
+%                   true  = その原子を優先的に選択して true にする（選択順も変える）
+%                   false = その原子を優先的に選択して false にする
+%                   sign  = 変数が選択されたとき weight の符号に応じた真偽を好む
+%                           （選択順は変えない）
 %                   level = 変数の decision level を weight に設定
 %
 % 【--heuristic=Domain フラグ】
@@ -67,14 +68,21 @@ front_preferred_dist(S, D) :-
 %
 % 【本行の意味】
 %   条件: tag(S, front_preferred) かつ in_front(R) が成立する (S, R) の組
-%   効果: assign(S, R) を true にすることを優先（weight=2, modifier=true）
+%   効果: 変数が選択されたとき assign(S, R) を真にすることを好む（modifier=sign）
 %   結果: front_preferred な児童・生徒が前列座席に配置された初期解が得られやすくなる。
 %         タイムアウトで最適化が完了しなくても、初期解の質が向上する。
 %         ハード制約ではないため UNSAT にはならず、最善努力を続ける。
 %
+% 【modifier を true でなく sign にする理由】
+%   true は決定順を grounding 順に固定するため、配慮タグの児童・生徒が
+%   実行間でも解候補間でも毎回同じ席（エリア内の最小 ID 席）に張り付く。
+%   sign は選択順を強制せず符号の好みだけを与えるため、誘導効果
+%   （タイムアウト時の @5 品質）を保ったままエリア内での席が
+%   シード・ショットごとに分散する（両者とも実測で確認済み）。
+%
 % 参考: https://potassco.org/clingo/
 %       https://github.com/ludaesch/clingo_guide/blob/master/heuristic.tex
-#heuristic assign(S, R) : tag(S, front_preferred), in_front(R). [2, true]
+#heuristic assign(S, R) : tag(S, front_preferred), in_front(R). [1, sign]
 
 
 %-----------------------------------------------------------------------------
@@ -96,11 +104,11 @@ back_preferred_dist(S, D) :-
 
 % 探索誘導: back_preferred の児童・生徒を後列座席に優先的に配置する（#heuristic）
 %
-% 構文・フラグの詳細は S-01 の #heuristic コメントを参照。
+% 構文・フラグ・sign を選ぶ理由の詳細は S-01 の #heuristic コメントを参照。
 % 条件: tag(S, back_preferred) かつ in_back(R) が成立する (S, R) の組
-% 効果: assign(S, R) を true にすることを優先（weight=2, modifier=true）
+% 効果: 変数が選択されたとき assign(S, R) を真にすることを好む（modifier=sign）
 % 結果: back_preferred な児童・生徒が後列座席に配置された初期解が得られやすくなる。
-#heuristic assign(S, R) : tag(S, back_preferred), in_back(R). [2, true]
+#heuristic assign(S, R) : tag(S, back_preferred), in_back(R). [1, sign]
 
 
 %-----------------------------------------------------------------------------
