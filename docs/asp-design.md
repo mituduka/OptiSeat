@@ -257,7 +257,7 @@ front_preferred_dist(S, D) :- tag(S, front_preferred), assign(S, R),
 | `-n 1` | compete モードで各スレッドが最適解を1件証明した時点でショット終了 |
 | `--opt-mode=optN` | 最適スコアを求めた後に列挙（中間解も `on_model` に届く） |
 | `--heuristic=Domain` | `soft.lp` の `#heuristic` ディレクティブを有効化（前/後配慮の初期解品質向上） |
-| `--rand-freq=SOLVER_RAND_FREQ` | ランダム選択頻度（既定 0.05。大きくすると探索誘導が壊れ解品質が劣化する） |
+| `--rand-freq=SOLVER_RAND_FREQ` | ランダム選択頻度（既定 0.1。大きくすると探索誘導が壊れ解品質が劣化し、小さすぎると実行間で第1候補が同一になる） |
 | `--seed`, `--parallel-mode` | シードとショット内並列スレッド数 |
 
 ### 4.2 距離制約による解の多様化
