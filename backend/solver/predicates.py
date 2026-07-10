@@ -206,7 +206,7 @@ class OptLoneliness(Predicate):
 
 class OptPrevSeatDiffer(Predicate):
     """
-    O-1: 前回と異なる座席を強制するオプション。
+    S-05（前回と同じ座席を避ける）を有効にするオプション。
     述語名: opt_prev_seat_differ/0
     """
 

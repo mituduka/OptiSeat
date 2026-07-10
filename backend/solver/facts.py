@@ -149,7 +149,7 @@ def build_factbase(data: dict) -> FactBase:
     }
     seat_map: dict[int, dict] = {s["id"]: s for s in data.get("seats", [])}
 
-    # O-1: 前回と異なる座席を強制
+    # S-05: 前回と異なる座席（有効時のみ opt ファクトを追加して弱制約を活性化）
     if prev_options.get("differ_seat"):
         facts.append(OptPrevSeatDiffer())
 
