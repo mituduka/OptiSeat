@@ -40,8 +40,8 @@ def build_factbase(data: dict) -> FactBase:
         data: {
             "students": [{"id": 1, "gender": "male", "tags": ["front_preferred"]}],
             "seats":    [{"id": 1, "row": 1, "col": 1}],
-            "front_rows": [1],       # ユーザー設定（デフォルト: [1]）
-            "back_rows":  [2],       # ユーザー設定（省略時は最終行を自動検出）
+            "front_rows": [1],       # ユーザー設定（デフォルト: [1]、[] はエリアなし）
+            "back_rows":  [2],       # ユーザー設定（None は最終行を自動検出、[] はエリアなし）
             "groups": [{"group_id": 1, "seat_ids": [1, 2, 4, 5]}],
             "fixed":    [{"student_id": 3, "seat_id": 7}],
             "forbidden": [{"student_id_a": 2, "student_id_b": 5}],
@@ -70,9 +70,11 @@ def build_factbase(data: dict) -> FactBase:
         facts.append(FrontRow(row=row))
 
     # ── 後列定義（BackRow）───────────────────────────────────────────────
-    # 省略時はグリッドの最終行を自動検出してデフォルトとして設定する
+    # None（未指定）はグリッドの最終行を自動検出してデフォルトとして設定する。
+    # 明示的な空リストは「後側エリアなし」を意味し、ファクトを追加しない
+    # （back_preferred タグは対象外になる。front_rows=[] と同じ扱い）
     back_rows = data.get("back_rows")
-    if back_rows:
+    if back_rows is not None:
         for row in back_rows:
             facts.append(BackRow(row=row))
     elif data.get("seats"):

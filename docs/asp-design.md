@@ -224,7 +224,7 @@ front_preferred_dist(S, D) :- tag(S, front_preferred), assign(S, R),
    ```
    flat_data = {
      students, seats,
-     front_rows, back_rows,        # back_rows=None は facts.py で最終行を自動補完
+     front_rows, back_rows,        # back_rows=None は facts.py で最終行を自動補完（[]=エリアなし）
      groups,
      fixed, forbidden, seat_gender, relative_fixed, leader_groups,
      prev_assign, prev_options, soft_toggles,

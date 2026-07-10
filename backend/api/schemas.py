@@ -102,7 +102,10 @@ class SeatConfig(BaseModel):
     )
     back_rows: list[int] | None = Field(
         default=None,
-        description="後列とする行番号リスト（省略時は最終行を自動設定）",
+        description=(
+            "後列とする行番号リスト"
+            "（省略/null 時は最終行を自動設定、空リストは後側エリアなし）"
+        ),
     )
 
     @model_validator(mode="after")

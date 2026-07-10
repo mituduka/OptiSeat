@@ -1146,3 +1146,56 @@ class TestSolutionDiversity:
             sample_data, max_solutions=3, min_diff_ratio=0.0
         )
         assert len(solutions) >= 1
+
+
+# ── 前後配慮エリア未設定（空リスト）テスト ─────────────────────────────────────
+
+
+class TestPreferenceZoneAbsence:
+    """エリア0行（空リスト）は「エリアなし」として安全に扱われる。"""
+
+    def test_empty_front_rows_solves_without_crash(self) -> None:
+        """front_rows=[] + front_preferred タグでもソルバが正常に解を返す。"""
+        data = {
+            "students": [
+                {"id": 1, "gender": "male", "tags": ["front_preferred"]},
+                {"id": 2, "gender": "female", "tags": []},
+            ],
+            "seats": [
+                {"id": 1, "row": 1, "col": 1},
+                {"id": 2, "row": 1, "col": 2},
+            ],
+            "classroom": {
+                "num_rows": 1, "num_cols": 2,
+                "front_rows": [], "back_rows": [],
+            },
+            "groups": [],
+            "constraints": {},
+            "prev_assign": [],
+        }
+        solutions, timed_out = run_solver(data, max_solutions=2, timeout=5)
+        assert len(solutions) >= 1
+        assert timed_out is False
+
+    def test_empty_back_rows_means_no_back_zone(self) -> None:
+        """back_rows=[] は BackRow ファクトを生成しない（最終行フォールバックしない）。"""
+        from backend.solver.facts import build_factbase
+        from backend.solver.predicates import BackRow
+
+        base = {
+            "students": [{"id": 1, "gender": "male", "tags": []}],
+            "seats": [
+                {"id": 1, "row": 1, "col": 1},
+                {"id": 2, "row": 2, "col": 1},
+            ],
+            "front_rows": [1],
+            "groups": [], "fixed": [], "forbidden": [], "seat_gender": [],
+            "relative_fixed": [], "leader_groups": [], "prev_assign": [],
+            "prev_options": {}, "soft_toggles": {},
+        }
+        fb_empty = build_factbase({**base, "back_rows": []})
+        assert list(fb_empty.query(BackRow).all()) == []
+
+        fb_none = build_factbase({**base, "back_rows": None})
+        rows = [b.row for b in fb_none.query(BackRow).all()]
+        assert rows == [2], "None 時は最終行を自動設定する"

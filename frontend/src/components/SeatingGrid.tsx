@@ -322,14 +322,14 @@ export default function SeatingGrid({
                           if (!fixedOk) violationTexts.push(violationText.fixedMismatch(fixedC.row, fixedC.col, seat.row, seat.col))
                         }
 
-                        // ②前側配慮バッジ + 違反テキスト
-                        if (student.tags.includes('front_preferred')) {
+                        // ②前側配慮バッジ + 違反テキスト（エリア未設定=0行のときは対象外）
+                        if (student.tags.includes('front_preferred') && frontRows.length > 0) {
                           badges.push({ label: '前', ok: frontRows.includes(seat.row) })
                           if (!frontRows.includes(seat.row)) violationTexts.push(violationText.frontPreferred())
                         }
 
-                        // ③後側配慮バッジ + 違反テキスト
-                        if (student.tags.includes('back_preferred')) {
+                        // ③後側配慮バッジ + 違反テキスト（エリア未設定=0行のときは対象外）
+                        if (student.tags.includes('back_preferred') && backRows.length > 0) {
                           badges.push({ label: '後', ok: backRows.includes(seat.row) })
                           if (!backRows.includes(seat.row)) violationTexts.push(violationText.backPreferred())
                         }

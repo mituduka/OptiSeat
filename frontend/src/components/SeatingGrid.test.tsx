@@ -222,3 +222,33 @@ describe('SeatingGrid セル違反ツールチップ', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 })
+
+describe('SeatingGrid 前後配慮エリア未設定（0行）', () => {
+  it('frontRows が空のとき front_preferred のバッジを表示しない（対象外）', () => {
+    const student: Student = { ...MALE, tags: ['front_preferred'] }
+    render(
+      <SeatingGrid
+        {...BASE_PROPS}
+        frontRows={[]}
+        students={[student]}
+        assignments={[{ student_id: 1, seat_id: 3 }]}
+        showViolationDetail={true}
+      />,
+    )
+    expect(screen.queryByText('前')).not.toBeInTheDocument()
+  })
+
+  it('backRows が空のとき back_preferred のバッジを表示しない（対象外）', () => {
+    const student: Student = { ...FEMALE, tags: ['back_preferred'] }
+    render(
+      <SeatingGrid
+        {...BASE_PROPS}
+        backRows={[]}
+        students={[student]}
+        assignments={[{ student_id: 2, seat_id: 1 }]}
+        showViolationDetail={true}
+      />,
+    )
+    expect(screen.queryByText('後')).not.toBeInTheDocument()
+  })
+})

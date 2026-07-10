@@ -384,8 +384,8 @@ Pydantic による入力バリデーション失敗。
 |-----------|-----|-----------|------|
 | `num_rows` | `int (1〜SEAT_MAX_ROWS)` | 必須 | 行数（上限の既定は12、環境変数で変更可能） |
 | `num_cols` | `int (1〜SEAT_MAX_COLS)` | 必須 | 列数（上限の既定は12、環境変数で変更可能） |
-| `front_rows` | `int[]` | `[1]` | 前列とみなす行番号リスト |
-| `back_rows` | `int[] \| null` | `null` | 後列とみなす行番号リスト。`null` 時は back_preferred 違反が常にカウントされる |
+| `front_rows` | `int[]` | `[1]` | 前列とみなす行番号リスト。空リストは「前側エリアなし」（front_preferred は対象外） |
+| `back_rows` | `int[] \| null` | `null` | 後列とみなす行番号リスト。`null`（省略）時は最終行を自動設定。空リストは「後側エリアなし」（back_preferred は対象外） |
 
 ### ConstraintConfig
 

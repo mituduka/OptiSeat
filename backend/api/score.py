@@ -69,8 +69,10 @@ def compute_score(
 
     classroom = request_data.get("classroom", {})
     front_rows = set(classroom.get("front_rows", [1]))
+    # back_rows は None（未指定）なら最終行を自動設定、明示的な空リストは
+    # 「後側エリアなし」（facts.py と同じ解釈）
     back_rows_raw = classroom.get("back_rows")
-    if back_rows_raw:
+    if back_rows_raw is not None:
         back_rows = set(back_rows_raw)
     elif request_data.get("seats"):
         back_rows = {max(s["row"] for s in request_data["seats"])}
@@ -78,22 +80,26 @@ def compute_score(
         back_rows = set()
 
     # S-01: front_preferred violations
+    # エリア未設定（front_rows が空）の場合はソルバも最適化しないため対象外（0件）
     front_violations = 0
-    for s in request_data["students"]:
-        if "front_preferred" in s.get("tags", []):
-            seat_id = assign_map.get(s["id"])
-            seat = seat_map.get(seat_id) if seat_id is not None else None
-            if seat is not None and seat["row"] not in front_rows:
-                front_violations += 1
+    if front_rows:
+        for s in request_data["students"]:
+            if "front_preferred" in s.get("tags", []):
+                seat_id = assign_map.get(s["id"])
+                seat = seat_map.get(seat_id) if seat_id is not None else None
+                if seat is not None and seat["row"] not in front_rows:
+                    front_violations += 1
 
     # S-02: back_preferred violations
+    # エリア未設定（back_rows が空）の場合は対象外（S-01 と同じ扱い）
     back_violations = 0
-    for s in request_data["students"]:
-        if "back_preferred" in s.get("tags", []):
-            seat_id = assign_map.get(s["id"])
-            seat = seat_map.get(seat_id) if seat_id is not None else None
-            if seat is not None and seat["row"] not in back_rows:
-                back_violations += 1
+    if back_rows:
+        for s in request_data["students"]:
+            if "back_preferred" in s.get("tags", []):
+                seat_id = assign_map.get(s["id"])
+                seat = seat_map.get(seat_id) if seat_id is not None else None
+                if seat is not None and seat["row"] not in back_rows:
+                    back_violations += 1
 
     # S-03: group gender imbalance
     # group_id に対して「男性0」または「女性0」それぞれをカウント（soft.lp の2ルールに対応）
