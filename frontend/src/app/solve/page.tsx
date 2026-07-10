@@ -147,6 +147,15 @@ export default function SolvePage() {
     .filter((lg) => lg.studentIds.length > numGroups)
     .map((lg) => `「${lg.name}」グループ(${lg.studentIds.length}人)の人数が班数(${numGroups}班)を超えています。解が見つからない可能性があります。`)
 
+  // 配慮タグ保持者がいるのにエリアが0行の場合、配慮が適用されないことを知らせる
+  const zoneWarnings: string[] = []
+  if (frontRows.length === 0 && students.some((s) => s.tags.includes('front_preferred'))) {
+    zoneWarnings.push(`${CONSTRAINT_DEFS.front_preferred.short}のメンバーがいますが、前側エリアが未設定（0行）のため適用されません。座席設定で前側エリアの行数を確認してください。`)
+  }
+  if (backRows.length === 0 && students.some((s) => s.tags.includes('back_preferred'))) {
+    zoneWarnings.push(`${CONSTRAINT_DEFS.back_preferred.short}のメンバーがいますが、後側エリアが未設定（0行）のため適用されません。座席設定で後側エリアの行数を確認してください。`)
+  }
+
   // localStorage からのデータ復元が終わるまで描画しない（リロード直後に生徒数0などが一瞬見えるのを防ぐ）
   if (!hydrated) return null
 
@@ -243,6 +252,21 @@ export default function SolvePage() {
                 <p className="font-medium">班分散グループの設定を確認してください。</p>
                 <ul className="mt-1 space-y-0.5 text-sm">
                   {leaderGroupWarnings.map((msg, i) => <li key={i}>{msg}</li>)}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 前後配慮エリア未設定の警告 */}
+        {zoneWarnings.length > 0 && (
+          <div role="status" className="bg-warning-soft border border-warning text-warning-strong rounded-lg px-4 py-3 text-sm">
+            <div className="flex items-start gap-2">
+              <TriangleAlert size={15} className="shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">前後配慮エリアの設定を確認してください。</p>
+                <ul className="mt-1 space-y-0.5 text-sm">
+                  {zoneWarnings.map((msg, i) => <li key={i}>{msg}</li>)}
                 </ul>
               </div>
             </div>

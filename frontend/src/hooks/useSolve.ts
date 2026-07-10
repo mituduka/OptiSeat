@@ -91,7 +91,9 @@ export function useSolve() {
         num_rows: numRows,
         num_cols: numCols,
         front_rows: frontRows,
-        back_rows: backRows.length > 0 ? backRows : undefined,
+        // 常に配列で送る。空配列は「後側エリアなし」（省略すると
+        // バックエンドが最終行を自動設定してしまい 0 行の意図が伝わらない）
+        back_rows: backRows,
       },
       groups: groupsToApi(groups, numGroups, numRows, numCols),
       constraints: {

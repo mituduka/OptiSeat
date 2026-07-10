@@ -650,3 +650,50 @@ class TestManualAdjustmentRobustness:
         # student_map に 999 が無くても KeyError にならず計算が完了する
         result = compute_score(bad_assign, req)
         assert isinstance(result, ScoreBreakdown)
+
+
+# ---------------------------------------------------------------------------
+# 前後配慮エリア未設定（空リスト）の扱い
+# ---------------------------------------------------------------------------
+
+
+class TestEmptyPreferenceZones:
+    """エリアが明示的に空（0行）の場合、配慮タグは対象外（違反0件）になる。"""
+
+    def test_empty_front_rows_not_counted(self):
+        students = [dict(s, tags=["front_preferred"]) for s in STUDENTS]
+        req = _req(
+            students=students,
+            classroom={
+                "num_rows": 2, "num_cols": 3,
+                "front_rows": [], "back_rows": [2],
+            },
+        )
+        bd = compute_score(STRAIGHT, req)
+        assert bd.front_preferred_violation == 0
+
+    def test_empty_back_rows_not_counted(self):
+        students = [dict(s, tags=["back_preferred"]) for s in STUDENTS]
+        req = _req(
+            students=students,
+            classroom={
+                "num_rows": 2, "num_cols": 3,
+                "front_rows": [1], "back_rows": [],
+            },
+        )
+        bd = compute_score(STRAIGHT, req)
+        assert bd.back_preferred_violation == 0
+
+    def test_none_back_rows_falls_back_to_last_row(self):
+        """back_rows=None（未指定）は従来どおり最終行を自動設定する。"""
+        students = [
+            dict(s, tags=(["back_preferred"] if s["id"] == 1 else []))
+            for s in STUDENTS
+        ]
+        req = _req(
+            students=students,
+            classroom={"num_rows": 2, "num_cols": 3, "front_rows": [1]},
+        )
+        # 生徒1は seat 1（1行目）→ 最終行(2行目)にいないので違反1件
+        bd = compute_score(STRAIGHT, req)
+        assert bd.back_preferred_violation == 1

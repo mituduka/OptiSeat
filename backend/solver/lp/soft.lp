@@ -34,10 +34,14 @@
 %-----------------------------------------------------------------------------
 
 % 最近接 front_row への最小距離（中間述語を廃止してインライン #min で計算）
+% front_row(_) ガード: 前側エリア未設定（front_row ファクトなし）の場合は
+% 距離が定義できないため対象外とする（空集合の #min が #sup になる挙動に
+% 依存せず、ルール自体を成立させない明示的なガード）。
 front_preferred_dist(S, D) :-
     tag(S, front_preferred),
     assign(S, R),
     seat(R, RowR, _),
+    front_row(_),
     D = #min { |RowR - RowF| : front_row(RowF) }.
 
 :~ front_preferred_dist(S, D), D > 0. [D@5, S]
@@ -94,10 +98,12 @@ front_preferred_dist(S, D) :-
 %-----------------------------------------------------------------------------
 
 % 最近接 back_row への最小距離（中間述語を廃止してインライン #min で計算）
+% back_row(_) ガード: 後側エリア未設定時は対象外（S-01 のガードと同趣旨）
 back_preferred_dist(S, D) :-
     tag(S, back_preferred),
     assign(S, R),
     seat(R, RowR, _),
+    back_row(_),
     D = #min { |RowB - RowR| : back_row(RowB) }.
 
 :~ back_preferred_dist(S, D), D > 0. [D@5, S]

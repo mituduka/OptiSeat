@@ -91,7 +91,8 @@ function FinalizeContent() {
         num_rows: numRows,
         num_cols: numCols,
         front_rows: frontRows,
-        back_rows: backRows.length > 0 ? backRows : undefined,
+        // 常に配列で送る。空配列は「後側エリアなし」（useSolve と同じ扱い）
+        back_rows: backRows,
       },
       groups: groupsToApi(groups, numGroups, numRows, numCols),
       constraints: {

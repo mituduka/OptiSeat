@@ -144,7 +144,7 @@ def run_solver(
         "front_rows": classroom.get("front_rows", [1]),
         "back_rows": classroom.get(
             "back_rows"
-        ),  # None の場合は facts.py で自動補完
+        ),  # None は facts.py で最終行を自動補完（[] は後側エリアなし）
         "groups": data.get("groups", []),
         "fixed": constraints.get("fixed", []),
         "forbidden": constraints.get("forbidden", []),

@@ -103,3 +103,22 @@ describe('ScoreBreakdownTable ツールチップ', () => {
     expect(screen.queryByText('班内に男女を最低1人ずつ配置されていない件数')).toBeInTheDocument()
   })
 })
+
+describe('ScoreBreakdownTable disabledKeys（エリア0行の前後配慮）', () => {
+  it('disabledKeys で指定した制約の列に「無効」と表示され取り消し線が付く', () => {
+    render(
+      <ScoreBreakdownTable
+        {...BASE_PROPS}
+        disabledKeys={['front_preferred_violation', 'back_preferred_violation']}
+      />,
+    )
+    expect(screen.getAllByText('無効')).toHaveLength(2)
+    const label = screen.getByText('前側配慮違反').closest('span')
+    expect(label?.className).toContain('line-through')
+  })
+
+  it('disabledKeys 未指定なら前後配慮は通常表示', () => {
+    render(<ScoreBreakdownTable {...BASE_PROPS} />)
+    expect(screen.queryByText('無効')).not.toBeInTheDocument()
+  })
+})

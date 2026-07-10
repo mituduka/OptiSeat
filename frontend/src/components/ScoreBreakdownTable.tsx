@@ -11,6 +11,8 @@ interface ScoreBreakdownTableProps {
   constraintMeta: ConstraintMeta[]
   constraintToggles?: ConstraintToggles
   showViolationDetail?: boolean
+  /** トグル以外の理由で無効な制約キー（例: エリア0行のため対象外の前後配慮） */
+  disabledKeys?: string[]
 }
 
 interface InfoButtonProps {
@@ -53,6 +55,7 @@ export default function ScoreBreakdownTable({
   constraintMeta,
   constraintToggles,
   showViolationDetail = false,
+  disabledKeys = [],
 }: ScoreBreakdownTableProps) {
   const [tooltip, setTooltip] = useState<{ texts: string[]; x: number; y: number } | null>(null)
 
@@ -95,9 +98,10 @@ export default function ScoreBreakdownTable({
 
               const toggleKey = CONSTRAINT_TOGGLE_DEPS[meta.key]
               const isDisabled =
-                toggleKey !== undefined &&
-                constraintToggles !== undefined &&
-                !constraintToggles[toggleKey]
+                (toggleKey !== undefined &&
+                  constraintToggles !== undefined &&
+                  !constraintToggles[toggleKey]) ||
+                disabledKeys.includes(meta.key)
 
               const headers: React.ReactNode[] = []
 
