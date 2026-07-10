@@ -6,21 +6,32 @@ clingo で最適な座席配置を最大 N 件列挙して返す。
 
 処理フロー:
   1. ネスト形式の API リクエストをフラット dict に展開
-  2. build_factbase() で FactBase を構築し、grounding を1回だけ実行する
+  2. build_factbase() で FactBase を構築し、base の grounding を1回だけ実行する
   3. max_solutions 回のマルチショットループ:
-       - 各ショットで ctrl.configuration.solver.seed を変更（シード多様性）
+       - 各ショットで全スレッドの seed を変更（シード多様性）
        - --parallel-mode=max_workers により、ショット内で max_workers スレッドが並列探索
        - タイムアウトは max_solutions で均等分配（per_shot_timeout）
-  4. 重複を除き、常に最良コストの解群だけを保持して返す
+       - 解が得られるたびに「距離制約」（後述）を追加 grounding し、
+         次ショット以降の解が既出の解群と大きく異なることを保証する
+  4. 重複を除いた解群を返す
 
 設計の根拠:
-  - grounding 1回: ctrl.ground() は Control 生成直後に1回だけ呼ぶ。
+  - base grounding 1回: ctrl.ground() は Control 生成直後に1回だけ呼ぶ。
     multi-shot solving はグラウンドプログラムを再利用するため以降の solve() 呼び出しで
-    grounding コストはゼロ。
-  - シード多様性: ctrl.configuration.solver.seed をショットごとに変更することで
-    各ショットが独立した探索空間から出発し、多様な解が得られる。
+    grounding コストはゼロ。距離制約はショット間に小さな program part として
+    追加 grounding する（インクリメンタル。base の再 grounding は発生しない）。
+  - 距離制約による解多様性: シード変更だけでは「数人入れ替えただけの類似解」や
+    完全一致解が返ることがある（rand-freq を下げると顕著）。ショット k の解を
+    ファクト化し「既出解と一致する座席数 <= N - min_diff」を integrity constraint
+    として追加することで、候補間のハミング距離（座席が変わる人数）>= min_diff を保証する。
+    min_diff = floor(生徒数 × SOLVER_MIN_DIFF_RATIO)。固定制約で動けない生徒が
+    いる場合は実現可能な上限（生徒数 − 固定人数）にクランプする。
+    距離制約追加後の UNSAT は「十分に異なる解がもう存在しない」ことの証明なので、
+    それまでの解群を返してループを打ち切る（真の UNSAT とは区別する）。
   - 並列化: --parallel-mode=N で C レベルのスレッドを N 本起動。
     on_model コールバックは clingo が mutex で保護するためスレッドセーフ。
+    seed はスレッドごとの設定値のため、ショット毎に全スレッド分を更新する
+    （ctrl.configuration.solver.seed への代入は solver[0] にしか効かない点に注意）。
   - コスト追跡: --opt-mode=optN では最適化中間解も on_model に届くため、
     model.cost を追跡して常に最良コストの解群だけを保持する。
 """
@@ -37,16 +48,44 @@ from clorm.clingo import Control
 
 from .facts import build_factbase
 from .predicates import Assign
-from ..api.config import SOLVER_RAND_FREQ, SOLVER_WORKERS
+from ..api.config import (
+    SOLVER_MIN_DIFF_RATIO,
+    SOLVER_RAND_FREQ,
+    SOLVER_WORKERS,
+)
 
 # .lp ファイルのディレクトリ（このファイルと同じ solver/ 配下の lp/）
 LP_DIR = Path(__file__).parent / "lp"
+
+
+def build_diversity_program(
+    part_index: int,
+    solution: list[dict[str, int]],
+    min_diff: int,
+) -> str:
+    """
+    既出解との距離制約プログラム（LP テキスト）を生成する。
+
+    解をファクト divsol<k>(生徒ID, 座席ID) として列挙し、
+    「この解と同じ座席に座る生徒数が N - min_diff を超える」配置を禁止する。
+    つまり以降の解は、この解から min_diff 人以上が別の座席になる。
+    """
+    pred = f"divsol{part_index}"
+    facts = " ".join(
+        f"{pred}({a['student_id']},{a['seat_id']})." for a in solution
+    )
+    max_same = len(solution) - min_diff
+    constraint = (
+        f":- #count {{ S : {pred}(S, R), assign(S, R) }} > {max_same}."
+    )
+    return f"{facts}\n{constraint}"
 
 
 def run_solver(
     data: dict[str, Any],
     max_solutions: int = 5,
     timeout: int = 30,
+    min_diff_ratio: float | None = None,
 ) -> tuple[list[list[dict[str, int]]], bool]:
     """
     席替えソルバを実行し、最適な座席配置を複数返す。
@@ -71,12 +110,17 @@ def run_solver(
                 }
         max_solutions: 返却する最大解数（デフォルト 5）
         timeout: ソルバのタイムアウト秒数（デフォルト 30 秒）
+        min_diff_ratio: 解候補間の最小差分比率（0〜1）。None なら
+                   SOLVER_MIN_DIFF_RATIO（環境変数、デフォルト 0.5）を使う。
+                   0 で距離制約を無効化（テスト・チューニング用）。
 
     Returns:
         (solutions, timed_out) のタプル。
         solutions: 座席配置のリスト。
                    各要素は [{"student_id": 1, "seat_id": 5}, ...] 形式。
                    解なし（UNSAT）の場合は空リスト []。
+                   距離制約により「十分に異なる解」が尽きた場合は
+                   max_solutions 未満の件数を返す（水増しはしない）。
         timed_out: いずれかのショットでタイムアウトが発生した場合 True。
                    False かつ solutions が空なら確定 UNSAT。
                    確定 UNSAT が証明された場合は、先行ショットがタイムアウト
@@ -123,7 +167,17 @@ def run_solver(
         ) from exc
 
     max_workers = min(max_solutions, SOLVER_WORKERS)
-    seeds = [random.randint(0, 2**31 - 1) for _ in range(max_solutions)]
+    first_seed = random.randint(0, 2**31 - 1)
+
+    # ── 距離制約のパラメータ ─────────────────────────────────────────────
+    # min_diff = 解候補間で座席が変わるべき最小人数。
+    # 固定制約で動けない生徒は差分に寄与できないため、実現可能な上限
+    # （生徒数 − 固定人数）でクランプする。0 以下なら距離制約は無効。
+    if min_diff_ratio is None:
+        min_diff_ratio = SOLVER_MIN_DIFF_RATIO
+    n_students = len(flat_data["students"])
+    n_fixed = len({f["student_id"] for f in flat_data["fixed"]})
+    min_diff = min(int(n_students * min_diff_ratio), n_students - n_fixed)
 
     try:
         ctrl = Control(
@@ -140,7 +194,7 @@ def run_solver(
                 # Domain モードでは #heuristic で指定した原子を
                 # 優先的に真偽決定し、front/back 配慮の初期解品質を向上させる。
                 f"--rand-freq={SOLVER_RAND_FREQ}",
-                f"--seed={seeds[0]}",
+                f"--seed={first_seed}",
                 f"--parallel-mode={max_workers}",  # ショット内の並列スレッド数
             ],
             unifier=[Assign],
@@ -170,6 +224,7 @@ def run_solver(
     per_shot_timeout = max(1.0, timeout / max_solutions)
     deadline = time.monotonic() + timeout
     any_timed_out = False
+    diversity_parts = 0  # 追加済み距離制約の数（>0 なら UNSAT は「多様解の枯渇」）
 
     for shot_idx in range(max_solutions):
         if len(solutions) >= max_solutions:
@@ -180,9 +235,13 @@ def run_solver(
         if remaining <= 0:
             any_timed_out = True
             break
-        # ショットごとにシードを変更（1ショット目は Control 引数の seed を使用済み）
+        # ショットごとにシードを変更（1ショット目は Control 引数の seed を使用済み）。
+        # seed はスレッドごとの設定値のため全スレッド分を更新する
+        # （ctrl.configuration.solver.seed への代入は solver[0] にしか効かない）。
         if shot_idx > 0:
-            ctrl.configuration.solver.seed = str(seeds[shot_idx])
+            solver_conf = ctrl.configuration.solver
+            for i in range(len(solver_conf)):
+                solver_conf[i].seed = str(random.randint(0, 2**31 - 1))
 
         # ショット専用の best_result。on_model が呼ばれるたびに上書きされ、
         # ショット終了時点での最良解を保持する。
@@ -205,11 +264,14 @@ def run_solver(
                 # wait() が True → 探索完了。SolveResult で結果を確認する。
                 solve_result = handle.get()
                 if solve_result.unsatisfiable and solve_result.exhausted:
-                    # 確定 UNSAT: 全ショットで同一グラウンドを共有するため
-                    # 以降のショットも必ず解なし。早期終了する。
-                    # 先行ショットがタイムアウトしていても解なしは確定なので、
-                    # timeout ではなく unsatisfiable として報告する。
-                    any_timed_out = False
+                    if diversity_parts == 0:
+                        # 確定 UNSAT: 距離制約なしの UNSAT は元問題の解なしが
+                        # 確定したことを意味する。先行ショットがタイムアウト
+                        # していても timeout ではなく unsatisfiable として報告する。
+                        any_timed_out = False
+                    # 距離制約追加後の UNSAT は「既出解と min_diff 人以上異なる解が
+                    # もう存在しない」ことの証明。類似解で水増しせず、
+                    # ここまでの解群だけを返す（timed_out は変更しない）。
                     break
 
         result = best_result[0]
@@ -218,5 +280,15 @@ def run_solver(
             if key not in seen:
                 seen.add(key)
                 solutions.append(result)
+                # 距離制約を追加 grounding: 以降のショットはこの解から
+                # min_diff 人以上が別の座席になる配置だけを探索する
+                if min_diff > 0:
+                    part_name = f"div{diversity_parts}"
+                    program = build_diversity_program(
+                        diversity_parts, result, min_diff
+                    )
+                    ctrl.add(part_name, [], program)
+                    ctrl.ground([(part_name, [])])
+                    diversity_parts += 1
 
     return solutions, any_timed_out

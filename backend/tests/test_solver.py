@@ -1051,3 +1051,98 @@ class TestLeaderGroupConstraints:
         assert (
             solutions == []
         ), f"班数(2)を超えるグループ人数(3)でも解が返った: {solutions}"
+
+
+# ── 解多様性（距離制約）テスト ─────────────────────────────────────────────────
+
+
+def _hamming(
+    sol_a: list[dict[str, int]], sol_b: list[dict[str, int]]
+) -> int:
+    """2 つの解の間で座席が異なる生徒数を返す。"""
+    map_a = {a["student_id"]: a["seat_id"] for a in sol_a}
+    map_b = {a["student_id"]: a["seat_id"] for a in sol_b}
+    return sum(1 for sid in map_a if map_a[sid] != map_b.get(sid))
+
+
+def _tiny_data(n: int) -> dict:
+    """制約なし・タグなしの n 名 × 1×n グリッド（全解がコスト 0）。"""
+    return {
+        "students": [
+            {"id": i, "gender": "male" if i % 2 else "female", "tags": []}
+            for i in range(1, n + 1)
+        ],
+        "seats": [{"id": i, "row": 1, "col": i} for i in range(1, n + 1)],
+        "classroom": {"num_rows": 1, "num_cols": n, "front_rows": [1]},
+        "groups": [],
+        "constraints": {"fixed": [], "forbidden": []},
+        "prev_assign": [],
+    }
+
+
+class TestSolutionDiversity:
+    """距離制約（SOLVER_MIN_DIFF_RATIO / min_diff_ratio）の検証。"""
+
+    def test_pairwise_min_distance_guaranteed(self, sample_data: dict) -> None:
+        """返る解候補どうしは min_diff 人以上座席が異なること。"""
+        # 6 名 × 比率 0.5 → 最小差分 3 人
+        solutions, _ = run_solver(
+            sample_data, max_solutions=5, min_diff_ratio=0.5
+        )
+        assert len(solutions) >= 1
+        for i in range(len(solutions)):
+            for j in range(i + 1, len(solutions)):
+                d = _hamming(solutions[i], solutions[j])
+                assert d >= 3, (
+                    f"解{i}と解{j}の差分が{d}人しかない（最低3人必要）"
+                )
+
+    def test_diversity_exhaustion_returns_fewer(self) -> None:
+        """十分に異なる解が尽きたら件数を水増しせず打ち切ること。
+
+        3 名 × 1×3 グリッドで比率 1.0（全員移動）を要求すると、
+        互いに全席が異なる置換は最大 3 つ（ラテン方格の行）しか存在しない。
+        よって max_solutions=5 でもちょうど 3 件で打ち切られ、
+        UNSAT による打ち切りは timeout として報告されない。
+        """
+        solutions, timed_out = run_solver(
+            _tiny_data(3), max_solutions=5, min_diff_ratio=1.0
+        )
+        assert len(solutions) == 3, (
+            f"相互に全席が異なる置換は3つのはずが {len(solutions)} 件返った"
+        )
+        assert timed_out is False
+        for i in range(len(solutions)):
+            for j in range(i + 1, len(solutions)):
+                assert _hamming(solutions[i], solutions[j]) == 3
+
+    def test_true_unsat_still_reported(self, unsat_data: dict) -> None:
+        """距離制約が有効でも、元問題の UNSAT は解なしとして返ること。"""
+        solutions, timed_out = run_solver(unsat_data, min_diff_ratio=0.5)
+        assert solutions == []
+        assert timed_out is False
+
+    def test_all_fixed_clamps_min_diff(self) -> None:
+        """全員固定でも距離制約が実現可能上限にクランプされ解が返ること。"""
+        data = _tiny_data(3)
+        data["constraints"]["fixed"] = [
+            {"student_id": i, "seat_id": i} for i in range(1, 4)
+        ]
+        solutions, timed_out = run_solver(
+            data, max_solutions=5, min_diff_ratio=1.0
+        )
+        # 唯一解（全員固定）が 1 件だけ返る
+        assert len(solutions) == 1
+        assert timed_out is False
+        assert {a["student_id"]: a["seat_id"] for a in solutions[0]} == {
+            1: 1,
+            2: 2,
+            3: 3,
+        }
+
+    def test_ratio_zero_disables_diversity(self, sample_data: dict) -> None:
+        """比率 0 で距離制約が無効化され、従来どおり解が得られること。"""
+        solutions, _ = run_solver(
+            sample_data, max_solutions=3, min_diff_ratio=0.0
+        )
+        assert len(solutions) >= 1

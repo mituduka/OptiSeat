@@ -206,7 +206,7 @@ front_preferred_dist(S, D) :- tag(S, front_preferred), assign(S, R),
 
 > [!NOTE]
 > **探索誘導（`#heuristic`）**  
-> S-01/S-02 には `#heuristic assign(S,R) : tag(...), in_front/back(R). [2, true]` を指定し、配慮タグの児童・生徒を希望エリアに置いた状態から探索を始めさせる。最適解の定義は変えず、短い持ち時間でも良い解を早く得るための誘導。clingo 起動時に `--heuristic=Domain` が必要（`runner.py` で指定済み）で、ハード制約ではないため UNSAT にはならない。
+> S-01/S-02 には `#heuristic assign(S,R) : tag(...), in_front/back(R). [1, sign]` を指定し、配慮タグの児童・生徒が希望エリアの座席に置かれやすい状態で探索させる。最適解の定義は変えず、短い持ち時間でも良い解を早く得るための誘導。clingo 起動時に `--heuristic=Domain` が必要（`runner.py` で指定済み）で、ハード制約ではないため UNSAT にはならない。modifier に `true` でなく `sign` を使うのは、`true` が決定順を固定して配慮タグの児童・生徒を実行間・解候補間で毎回同じ席に張り付かせるため（`sign` は誘導効果を保ったままエリア内での席が分散する）。
 
 ## 4. Pythonオーケストレーター設計
 
@@ -238,13 +238,17 @@ front_preferred_dist(S, D) :- tag(S, front_preferred), assign(S, R),
 
 #### 3. マルチショットループ（最大 `max_solutions` 回）
 
-- 各ショットで `ctrl.configuration.solver.seed` を変更し、独立した探索空間から多様な解を得る。
+- 各ショットで**全スレッド**の `configuration.solver[i].seed` を変更し、独立した探索空間から解を得る
+  （`configuration.solver.seed` への代入は solver[0] にしか効かないため、スレッド数分ループする）。
 - ショット内では `--parallel-mode=max_workers`（`max_workers = min(max_solutions, SOLVER_WORKERS)`）で
   C レベルのスレッドが並列探索する。`on_model` は clingo が mutex 保護するためスレッドセーフ。
 - タイムアウトは `per_shot_timeout = max(1.0, timeout / max_solutions)` で均等分配。
 - `wait()` が False ならタイムアウト（`handle.cancel()`、`timed_out=True`）。
-  True かつ `unsatisfiable and exhausted` なら全ショット共通グラウンドのため確定 UNSAT として早期終了。
 - 各ショットの最良解を `frozenset` キーで重複排除して収集する。
+- 解を収集するたびに**距離制約**を追加 grounding する（§4.2）。
+- `unsatisfiable and exhausted` の場合:
+  - 距離制約をまだ追加していなければ**確定 UNSAT**として早期終了（`timed_out=False`）。
+  - 距離制約追加後なら「十分に異なる解が尽きた」証明なので、それまでの解群を返して打ち切る。
 
 **clingo 起動引数について**
 
@@ -253,13 +257,29 @@ front_preferred_dist(S, D) :- tag(S, front_preferred), assign(S, R),
 | `-n 1` | compete モードで各スレッドが最適解を1件証明した時点でショット終了 |
 | `--opt-mode=optN` | 最適スコアを求めた後に列挙（中間解も `on_model` に届く） |
 | `--heuristic=Domain` | `soft.lp` の `#heuristic` ディレクティブを有効化（前/後配慮の初期解品質向上） |
-| `--rand-freq=SOLVER_RAND_FREQ` | ランダム選択頻度（探索の多様性） |
-| `--seed`, `--parallel-mode` | シード多様性とショット内並列スレッド数 |
+| `--rand-freq=SOLVER_RAND_FREQ` | ランダム選択頻度（既定 0.1。大きくすると探索誘導が壊れ解品質が劣化し、小さすぎると実行間で第1候補が同一になる） |
+| `--seed`, `--parallel-mode` | シードとショット内並列スレッド数 |
 
-### 4.2 複数最適解を多様化する理由
+### 4.2 距離制約による解の多様化
 
-単一の clingo 実行で `-n N` 列挙すると、同一スコアの解が構造的に似た配置に偏ってしまう。  
-ショットごとにシードを変え、各ショットがサブ最適解を返しても採用することで、多様な候補を提示する。
+シード変更だけでは「数人が入れ替わっただけの類似解」や完全一致解が返ることがある
+（特に `--rand-freq` が小さいと顕著）。そこでショット k の解を得るたびに、
+解をファクト化した小さな program part を追加 grounding する:
+
+```
+divsolK(1,5). divsolK(2,3). ...   % ショット K の解（生徒ID, 座席ID）
+:- #count { S : divsolK(S, R), assign(S, R) } > N - min_diff.
+```
+
+これは「既出解と同じ座席に座る生徒数が `N - min_diff` を超える配置」を禁止する
+integrity constraint であり、以降のショットの解は既出の**全解**から
+`min_diff` 人以上が別の座席になることが**保証**される（ハミング距離の下限保証）。
+
+- `min_diff = floor(生徒数 × SOLVER_MIN_DIFF_RATIO)`（既定比率 0.5 = 半数以上が移動）。
+- 固定制約で動けない生徒は差分に寄与できないため `生徒数 − 固定人数` でクランプする。
+- base の再 grounding は発生しない（multi-shot solving のインクリメンタル grounding）。
+- 距離制約下で UNSAT になったら「これ以上大きく異なる解は存在しない」ことが
+  証明されたので、類似解で件数を水増しせずに打ち切る（`max_solutions` 未満で返る）。
 
 ## 5. サンプルデータと期待動作
 
