@@ -236,6 +236,11 @@ export default function SeatingResult({
           constraintMeta={constraintMeta}
           constraintToggles={constraintToggles}
           showViolationDetail={showViolationDetail}
+          // エリア0行（未設定）の前後配慮は対象外なので無効表示にする
+          disabledKeys={[
+            ...(frontRows.length === 0 ? ['front_preferred_violation'] : []),
+            ...(backRows.length === 0 ? ['back_preferred_violation'] : []),
+          ]}
         />
       )}
     </div>
