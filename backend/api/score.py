@@ -280,6 +280,12 @@ def compute_score(
                     break
 
     # 班分散グループ違反（ハード制約だが手動変更で発生しうる）
+    #
+    # 【数え方の仕様】班分散グループ×班ごとに「同じ班に入った超過人数
+    # （メンバー数 − 1）」を合算する。例: 同一グループの3人が同じ班なら 2 件。
+    # なお ASP（H-10）はペア単位の integrity constraint、SeatingGrid の
+    # セル注釈はペアごとの違反テキスト表示であり、それぞれ目的が異なるため
+    # 数え方は揃えない（ソルバ出力では常に 0 件なので実害はない）。
     leader_group_violations = 0
     for lg in request_data.get("constraints", {}).get("leader_groups", []):
         member_seats = [assign_map.get(sid) for sid in lg["student_ids"]]

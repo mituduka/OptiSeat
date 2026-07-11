@@ -123,6 +123,10 @@ export default function SeatingGrid({
   const studentToSeat = new Map<number, number>()
   for (const a of assignments) studentToSeat.set(a.student_id, a.seat_id)
 
+  // ソフト制約トグルの判定（未指定 = トグル情報のない呼び出しは全て表示する）
+  const toggleOn = (key: keyof ConstraintToggles): boolean =>
+    constraintToggles === undefined || constraintToggles[key]
+
   // 8方向隣接チェック（斜め含む）
   function isAdjacent8(seatIdA: number, seatIdB: number): boolean {
     const a = seatById.get(seatIdA), b = seatById.get(seatIdB)
@@ -353,7 +357,7 @@ export default function SeatingGrid({
                         violationTexts.push(...forbViolations)
 
                         // ⑤同性ピアなし（横隣∪同班）— トグル OFF 時は非表示
-                        if (constraintToggles?.loneliness !== false) {
+                        if (toggleOn('loneliness')) {
                           const adjacentSameGender = seats.filter((s) => s.row === seat.row && Math.abs(s.col - seat.col) === 1)
                             .some((s) => { const n = seatToStudent.get(s.id); return n && n.gender === student.gender })
                           const groupSameGender = seatGroup
@@ -364,7 +368,7 @@ export default function SeatingGrid({
                         }
 
                         // ⑥班内男女偏り — トグル OFF 時は非表示
-                        if (seatGroup && constraintToggles?.gender_balance !== false) {
+                        if (seatGroup && toggleOn('gender_balance')) {
                           const groupStudents = seats
                             .filter((s) => seatGroup.seatCoords.some((c) => c.row === s.row && c.col === s.col))
                             .map((s) => seatToStudent.get(s.id)).filter((s): s is Student => s !== undefined)
@@ -376,7 +380,7 @@ export default function SeatingGrid({
                         // ⑦前回同席（differ_seat=false なら警告スキップ）
                         const prevEntry = prevAssign.find((p) => p.student_id === student.id)
                         const prevSeatId = prevEntry ? coordsToSeatId(prevEntry.row, prevEntry.col, numCols) : undefined
-                        if (prevSeatId !== undefined && prevSeatId === seat.id && (constraintToggles === undefined || constraintToggles.differ_seat))
+                        if (prevSeatId !== undefined && prevSeatId === seat.id && toggleOn('differ_seat'))
                           violationTexts.push(violationText.prevSameSeat())
 
                         // ⑧性別配置制約違反
@@ -394,7 +398,7 @@ export default function SeatingGrid({
                         }
 
                         // ⑩前回横隣一致（differ_neighbor=false なら警告スキップ）
-                        if (prevAssign.length > 0 && (constraintToggles === undefined || constraintToggles.differ_neighbor)) {
+                        if (prevAssign.length > 0 && toggleOn('differ_neighbor')) {
                           for (const ns of seats.filter((s) => s.row === seat.row && Math.abs(s.col - seat.col) === 1)) {
                             const neighbor = seatToStudent.get(ns.id)
                             if (!neighbor) continue
@@ -404,7 +408,7 @@ export default function SeatingGrid({
                         }
 
                         // ⑪前回同班（differ_group=false なら警告スキップ）
-                        if (prevAssign.length > 0 && seatGroup && prevGroupSameIds.has(seatGroup.groupId) && (constraintToggles === undefined || constraintToggles.differ_group))
+                        if (prevAssign.length > 0 && seatGroup && prevGroupSameIds.has(seatGroup.groupId) && toggleOn('differ_group'))
                           violationTexts.push(violationText.prevGroupSame(seatGroup.groupId))
 
                         // ⑫ 班分散グループ違反

@@ -473,7 +473,7 @@ Pydantic による入力バリデーション失敗。
 | `gender_constraint_violation` | null | null | 性別制約違反件数（手動変更で発生） |
 | `relative_fixed_violation` | null | null | 隣接固定制約違反件数（手動変更で発生） |
 | `forbidden_violation` | null | null | 隣接禁止制約違反件数（手動変更で発生） |
-| `leader_group_violation` | null | null | 班分散グループ違反件数（手動変更で発生） |
+| `leader_group_violation` | null | null | 班分散グループ違反件数（手動変更で発生）。班分散グループ×班ごとに「同じ班に入った超過人数（メンバー数−1）」を合算した値 |
 
 `total = Σ (soft違反数 × 重み)`。`weight=null` のハード制約フィールドは `total` に含まれない。
 

@@ -122,7 +122,7 @@ export const CONSTRAINT_DEFS = {
     badge: '班分散G',
     violationLabel: '班分散グループ違反',
     constraintDescription: 'グループ内のメンバーを別々の班に配置する制約',
-    violationDescription: '班分散グループ内メンバーが同じ班に配置された件数（手動変更で発生しうる）',
+    violationDescription: '同じ班に入った班分散グループメンバーの超過人数（班ごとにメンバー数−1で数える。手動変更で発生しうる）',
     settingDescription: 'グループ内のメンバーが同じ班にならないよう配置します',
   },
 } as const
