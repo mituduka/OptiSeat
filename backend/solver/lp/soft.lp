@@ -147,37 +147,44 @@ group_occupied(G) :- in_group(_, G).
 %-----------------------------------------------------------------------------
 % S-04: 孤独感緩和（重み 1、優先度 @4）
 %
-% 「孤独感緩和ピア集合」= ① 横隣（左右、最大 2 人） ∪ ② 同班の他メンバー（最大 2 人）
+% 「孤独感緩和ピア集合」= ① 横隣（左右、最大 2 人） ∪ ② 同班の他メンバー（班サイズ−1 人）
 % この集合に同性が 1 人もいない場合にペナルティ。
+%
+% 【grounding 設計】横隣（①）を生徒ペア×隣接座席ペアの結合で書くと
+% 生徒ペア数 × 横隣接座席ペア数 に比例して爆発する（12×12・50人で
+% 全 grounding の約85%を占めた）。そこで①は「座席の占有者の性別」を
+% 経由する座席ベースの形にする。②（同班）はペア形のままにする
+% （集約より単位伝播が強く、班数×班内ペア数程度で爆発しないため）。
+% 各ルールに opt_loneliness を含めることで、トグル OFF 時は grounding 自体を省く。
 %-----------------------------------------------------------------------------
 
-% 補助①: 横隣（グループを跨いでよい、同じ行で列が 1 差）
-% S < S2 で片方向ペアのみ生成してファクト数を半減（対称性は _same_gender の2ルールで対応）
-% opt_loneliness をボディに含めることで、トグル OFF 時は O(N^2) の grounding 自体を省く
-loneliness_peer(S, S2) :-
-    opt_loneliness,
-    assign(S, R1), assign(S2, R2), S < S2,
+% 補助: 横隣座席（静的・対称。同じ行で列が 1 差）
+h_adj(R1, R2) :-
     seat(R1, Row, Col1), seat(R2, Row, Col2),
     |Col1 - Col2| = 1.
 
-% 補助②: 同班の他メンバー（横隣でなくてもよい）
-% S < S2 で片方向ペアのみ生成してファクト数を半減
-loneliness_peer(S, S2) :-
+% 補助: 座席 R の占有者の性別
+occupant_gender(R, G) :-
     opt_loneliness,
-    in_group(S, G), in_group(S2, G), S < S2.
+    assign(S, R), student(S, G).
 
-% 補助: ピア集合に同性が存在するか（両方向チェックで意味論を保持）
+% ① 横隣に同性がいる（グループを跨いでよい）
 loneliness_peer_same_gender(S) :-
-    loneliness_peer(S, S2),
-    student(S, Gender), student(S2, Gender).
+    opt_loneliness,
+    assign(S, R1), student(S, Gender),
+    h_adj(R1, R2), occupant_gender(R2, Gender).
 
+% ② 同班に同性の他メンバーがいる（横隣でなくてもよい）
 loneliness_peer_same_gender(S) :-
-    loneliness_peer(S2, S),
+    opt_loneliness,
+    in_group(S, G), in_group(S2, G), S != S2,
     student(S, Gender), student(S2, Gender).
 
 % 弱制約本体: ピア集合に同性が 1 人もいない場合ペナルティ
+% （全生徒は必ず1席割り当てられるため assign(S,_) でなく student(S,_) で十分。
+%   assign(S,_) は生徒×座席に grounding されるため無駄が大きい）
 :~ opt_loneliness,
-   assign(S, _),
+   student(S, _),
    not loneliness_peer_same_gender(S).
    [1@4, S]
 

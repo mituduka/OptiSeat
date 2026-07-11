@@ -297,12 +297,11 @@ class TestSoftConstraints:
         ), f"前回と同席の児童・生徒が {same_seat_count} 人いる"
 
     def test_loneliness_same_gender_detects_higher_id_peer(self) -> None:
-        """S-04 両方向チェック: 高IDの学生が低IDの学生を同性ピアとして検出できること。
+        """S-04 対称性チェック: 高IDの学生も低IDの学生を同性ピアとして検出できること。
 
-        soft.lp の loneliness_peer は S < S2 の片方向のみ格納する。
-        高ID側（id=2）の孤独感判定は第2ルール
-          loneliness_peer_same_gender(S) :- loneliness_peer(S2, S), student(S, Gender), student(S2, Gender).
-        を経由して行われる。このルールが機能しなければ id=2 にペナルティが発生する。
+        横隣ピアの判定（occupant_gender 経由）が生徒 ID の大小に依存せず
+        両方向に機能することを確認する。機能しなければ id=2 にペナルティが
+        発生し、最適解の孤独感違反が 0 にならない。
         """
         data = {
             "students": [
