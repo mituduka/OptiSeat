@@ -447,9 +447,15 @@ Pydantic による入力バリデーション失敗。
 
 | フィールド | デフォルト | 説明 |
 |-----------|-----------|------|
-| `differ_seat` | `false` | 前回と異なる座席を強制（ハード制約化） |
-| `differ_neighbor` | `false` | 前回と左右の隣を変える（ハード制約化） |
-| `differ_group` | `false` | 前回と異なる班メンバーを強制（ハード制約化） |
+| `differ_seat` | `false` | 前回と同じ座席への配置を避ける（ソフト制約 S-05 @1 を有効化） |
+| `differ_neighbor` | `false` | 前回と左右の隣が同じになるのを避ける（ソフト制約 S-06 @3 を有効化） |
+| `differ_group` | `false` | 前回と同じ班メンバー構成を避ける（ソフト制約 S-07 @2 を有効化） |
+
+> [!NOTE]
+> いずれもハード制約ではなく弱制約（違反があっても解は成立し、違反数が最小化される）。
+> `ScoreBreakdown` の `prev_assign_same` / `prev_neighbor_same` / `prev_group_same` は
+> トグルの ON/OFF によらず配置から機械的にカウントされる（UI 側がトグル OFF の項目を
+> 「無効」として表示から除外する）。
 
 #### SoftToggles
 
