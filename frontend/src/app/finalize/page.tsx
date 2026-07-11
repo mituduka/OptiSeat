@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, CircleCheck } from 'lucide-react'
@@ -79,7 +79,10 @@ function FinalizeContent() {
   // スコアリクエストのキャンセル用（レースコンディション防止）
   const scoreRequestId = useRef(0)
 
-  const fetchScore = useCallback(async (current: AssignmentResult[]) => {
+  // ハンドラとマウント時 effect からのみ呼ばれるためメモ化しない
+  // （useCallback にしても deps の seats/frontRows/backRows が毎レンダー
+  //   再生成されるため実質メモ化されず、無意味な複雑さになる）
+  async function fetchScore(current: AssignmentResult[]) {
     const requestId = ++scoreRequestId.current
     setIsScoring(true)
     setScoreError(null)
@@ -125,7 +128,7 @@ function FinalizeContent() {
         setIsScoring(false)
       }
     }
-  }, [students, seats, groups, numGroups, fixedConstraints, forbiddenConstraints, seatGenderConstraints, relativeFixedConstraints, prevAssign, frontRows, backRows, numRows, numCols])
+  }
 
   // マウント時に自動スコア計算
   useEffect(() => {
