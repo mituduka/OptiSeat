@@ -1273,3 +1273,74 @@ class TestPrevSeatToggle:
         assert assign_map == {1: 2, 2: 1}, (
             f"前回席の入替になっていない: {assign_map}"
         )
+
+
+# ── エンコーディング改善（Issue #55）テスト ──────────────────────────────────
+
+
+class TestEncodingCleanups:
+    """#55: 空班の S-03 対象外化・総容量の冗長制約。"""
+
+    def _optimal_cost(self, facts: str) -> list[int] | None:
+        import clingo
+
+        from backend.solver.runner import LP_DIR
+
+        ctl = clingo.Control(["--opt-mode=opt", "-n", "0"])
+        for name in ["base.lp", "hard.lp", "soft.lp"]:
+            ctl.load(str(LP_DIR / name))
+        ctl.add("base", [], facts)
+        ctl.ground([("base", [])])
+        costs: list[list[int]] = []
+        ctl.solve(on_model=lambda m: costs.append(list(m.cost)))
+        return costs[-1] if costs else None
+
+    def test_empty_group_not_penalized_by_gender_balance(self) -> None:
+        """S-03: 誰も配置されていない班はペナルティ対象外（score.py と一致）。"""
+        # 2人を班1（男女両方）に固定。班2の座席は空になる
+        facts = (
+            "student(1, male). student(2, female). "
+            "seat(1,1,1). seat(2,1,2). seat(3,2,1). seat(4,2,2). "
+            "front_row(1). back_row(2). "
+            "group(1,1). group(1,2). group(2,3). group(2,4). "
+            "fixed(1,1). fixed(2,2). "
+            "opt_gender_balance."
+        )
+        cost = self._optimal_cost(facts)
+        assert cost is not None
+        assert all(c == 0 for c in cost), (
+            f"空班（班2）にペナルティが付いている: {cost}"
+        )
+
+    def test_occupied_group_still_penalized(self) -> None:
+        """S-03: 男性のみの班には従来どおりペナルティが付く。"""
+        facts = (
+            "student(1, male). student(2, male). "
+            "seat(1,1,1). seat(2,1,2). "
+            "front_row(1). back_row(1). "
+            "group(1,1). group(1,2). "
+            "opt_gender_balance."
+        )
+        cost = self._optimal_cost(facts)
+        assert cost is not None
+        # 女性0人のペナルティ1件のみ
+        assert cost[-1] == 1, f"男性のみの班のペナルティがない: {cost}"
+
+    def test_total_capacity_exceeded_is_immediate_unsat(self) -> None:
+        """総人数 > 総座席数 は（APIを経なくても）即座に UNSAT が確定する。"""
+        data = {
+            "students": [
+                {"id": i, "gender": "male", "tags": []} for i in range(1, 4)
+            ],
+            "seats": [
+                {"id": 1, "row": 1, "col": 1},
+                {"id": 2, "row": 1, "col": 2},
+            ],
+            "classroom": {"num_rows": 1, "num_cols": 2, "front_rows": [1]},
+            "groups": [],
+            "constraints": {},
+            "prev_assign": [],
+        }
+        solutions, timed_out = run_solver(data, max_solutions=2, timeout=5)
+        assert solutions == []
+        assert timed_out is False
