@@ -33,16 +33,23 @@
 % ASP のコスト値と Python のカウント値が数値として一致しないのは既知かつ許容済み。
 %-----------------------------------------------------------------------------
 
-% 最近接 front_row への最小距離（中間述語を廃止してインライン #min で計算）
+% 座席ごとの最近接 front_row への距離（静的補助述語）
+% seat / front_row のみに依存するため座席ごとに1回だけ grounding される
+% （タグ付き生徒×座席ごとに #min を評価するより無駄がない）。
 % front_row(_) ガード: 前側エリア未設定（front_row ファクトなし）の場合は
 % 距離が定義できないため対象外とする（空集合の #min が #sup になる挙動に
 % 依存せず、ルール自体を成立させない明示的なガード）。
-front_preferred_dist(S, D) :-
-    tag(S, front_preferred),
-    assign(S, R),
+% ※ #min のタプル内のグローバル変数 RowR に clingo が info 警告を出すが、
+%   各座席ごとに独立した集約として意図どおりに評価される（無害）。
+front_dist(R, D) :-
     seat(R, RowR, _),
     front_row(_),
     D = #min { |RowR - RowF| : front_row(RowF) }.
+
+front_preferred_dist(S, D) :-
+    tag(S, front_preferred),
+    assign(S, R),
+    front_dist(R, D).
 
 :~ front_preferred_dist(S, D), D > 0. [D@5, S]
 
@@ -97,14 +104,17 @@ front_preferred_dist(S, D) :-
 % D=0 のとき（後列に配置）はペナルティなし（D > 0 ガード）。
 %-----------------------------------------------------------------------------
 
-% 最近接 back_row への最小距離（中間述語を廃止してインライン #min で計算）
-% back_row(_) ガード: 後側エリア未設定時は対象外（S-01 のガードと同趣旨）
-back_preferred_dist(S, D) :-
-    tag(S, back_preferred),
-    assign(S, R),
+% 座席ごとの最近接 back_row への距離（静的補助述語。S-01 の front_dist と同趣旨）
+% back_row(_) ガード: 後側エリア未設定時は対象外
+back_dist(R, D) :-
     seat(R, RowR, _),
     back_row(_),
     D = #min { |RowB - RowR| : back_row(RowB) }.
+
+back_preferred_dist(S, D) :-
+    tag(S, back_preferred),
+    assign(S, R),
+    back_dist(R, D).
 
 :~ back_preferred_dist(S, D), D > 0. [D@5, S]
 
@@ -121,10 +131,17 @@ back_preferred_dist(S, D) :-
 % S-03: 班内男女バランス（重み 1、優先度 @4）
 %
 % 班に男性が 0 人、または女性が 0 人の場合にペナルティを与える。
+% 誰も配置されていない班（空班）は対象外とする。座席数 > 人数のとき、
+% 空班にまでペナルティを与えると内部コストが score.py の表示
+% （空班は males+females > 0 で除外）と乖離し、ソルバが空班を作らない
+% 方向へ暗黙に誘導されてしまうため、表示側の解釈に合わせる。
 %-----------------------------------------------------------------------------
 
-:~ opt_gender_balance, group_id(G), not group_has_male(G).   [1@4, G]
-:~ opt_gender_balance, group_id(G), not group_has_female(G). [1@4, G]
+% 班に誰か1人でも配置されているか（空班除外用）
+group_occupied(G) :- in_group(_, G).
+
+:~ opt_gender_balance, group_occupied(G), not group_has_male(G).   [1@4, G]
+:~ opt_gender_balance, group_occupied(G), not group_has_female(G). [1@4, G]
 
 
 %-----------------------------------------------------------------------------
