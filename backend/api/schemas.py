@@ -190,7 +190,7 @@ class PrevAssignment(BaseModel):
 
 class PrevSeatOptions(BaseModel):
     differ_seat: bool = Field(
-        default=False, description="O-1: 前回と異なる座席を強制"
+        default=False, description="S-05: 前回と同じ座席への配置を避ける"
     )
     differ_neighbor: bool = Field(
         default=False, description="O-2: 前回と左右の隣を変える"

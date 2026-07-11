@@ -275,7 +275,11 @@ class TestSoftConstraints:
         )
 
     def test_previous_assignment_differs(self, sample_data: dict) -> None:
-        """S-05: 最良解では前回と同じ席になる児童・生徒が 0 人であること（理想値の確認）。"""
+        """S-05: 最良解では前回と同じ席になる児童・生徒が 0 人であること（理想値の確認）。
+
+        S-05 は differ_seat トグル連動（Issue #58 対応）のため明示的に有効化する。
+        """
+        sample_data["options"] = {"prev_options": {"differ_seat": True}}
         solutions, _ = run_solver(sample_data, max_solutions=1)
         assert solutions
         prev_map = {
@@ -1199,3 +1203,73 @@ class TestPreferenceZoneAbsence:
         fb_none = build_factbase({**base, "back_rows": None})
         rows = [b.row for b in fb_none.query(BackRow).all()]
         assert rows == [2], "None 時は最終行を自動設定する"
+
+
+# ── S-05 トグル連動（differ_seat）テスト（Issue #58） ──────────────────────────
+
+
+class TestPrevSeatToggle:
+    """S-05 は opt_prev_seat_differ（differ_seat トグル）が有効なときだけ働く。"""
+
+    BASE_FACTS = (
+        "student(1, male). seat(1,1,1). front_row(1). back_row(1). "
+        "prev_assign(1,1)."
+    )
+
+    def _optimal_cost(self, facts: str) -> list[int] | None:
+        """lp ファイル + ファクトを直接 clingo で解き、最適コストを返す。"""
+        import clingo
+
+        from backend.solver.runner import LP_DIR
+
+        ctl = clingo.Control(["--opt-mode=opt", "-n", "0"])
+        for name in ["base.lp", "hard.lp", "soft.lp"]:
+            ctl.load(str(LP_DIR / name))
+        ctl.add("base", [], facts)
+        ctl.ground([("base", [])])
+        costs: list[list[int]] = []
+        ctl.solve(on_model=lambda m: costs.append(list(m.cost)))
+        return costs[-1] if costs else None
+
+    def test_penalty_inactive_without_toggle(self) -> None:
+        """トグル OFF では前回同席にペナルティが付かない（コスト項なし）。"""
+        cost = self._optimal_cost(self.BASE_FACTS)
+        assert cost is not None
+        assert all(c == 0 for c in cost), f"OFF なのにコストが付いた: {cost}"
+
+    def test_penalty_active_with_toggle(self) -> None:
+        """トグル ON では前回同席（1席のみで回避不能）にペナルティ 1 が付く。"""
+        cost = self._optimal_cost(
+            self.BASE_FACTS + " opt_prev_seat_differ."
+        )
+        assert cost is not None
+        assert cost[-1] == 1, f"ON なのに @1 ペナルティがない: {cost}"
+
+    def test_toggle_forces_different_seats(self) -> None:
+        """トグル ON なら最良解は前回と異なる配置（2人2席で入替）になる。"""
+        data = {
+            "students": [
+                {"id": 1, "gender": "male", "tags": []},
+                {"id": 2, "gender": "male", "tags": []},
+            ],
+            "seats": [
+                {"id": 1, "row": 1, "col": 1},
+                {"id": 2, "row": 1, "col": 2},
+            ],
+            "classroom": {"num_rows": 1, "num_cols": 2, "front_rows": [1]},
+            "groups": [],
+            "constraints": {},
+            "prev_assign": [
+                {"student_id": 1, "seat_id": 1},
+                {"student_id": 2, "seat_id": 2},
+            ],
+            "options": {"prev_options": {"differ_seat": True}},
+        }
+        solutions, _ = run_solver(
+            data, max_solutions=1, min_diff_ratio=0.0
+        )
+        assert solutions
+        assign_map = {a["student_id"]: a["seat_id"] for a in solutions[0]}
+        assert assign_map == {1: 2, 2: 1}, (
+            f"前回席の入替になっていない: {assign_map}"
+        )

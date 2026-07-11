@@ -134,7 +134,7 @@ export interface PrevAssignmentApi {
 }
 
 export interface PrevSeatOptions {
-  differ_seat: boolean     // O-1: 前回と異なる座席
+  differ_seat: boolean     // S-05: 前回と異なる座席
   differ_neighbor: boolean // O-2: 前回と左右の隣を変える
   differ_group: boolean    // O-3: 前回と異なる班メンバー
 }
