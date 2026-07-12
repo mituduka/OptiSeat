@@ -338,31 +338,35 @@ export default function SolvePage() {
           </div>
         ))}
 
-        {/* 解候補タブ */}
-        <SolutionTabs
-          solutions={solutions}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onAdopt={handleAdopt}
-          numRows={numRows}
-          numCols={numCols}
-          frontRows={frontRows}
-          backRows={backRows}
-          students={students}
-          groups={groups}
-          numGroups={numGroups}
-          fixedConstraints={fixedConstraints}
-          forbiddenConstraints={forbiddenConstraints}
-          seatGenderConstraints={seatGenderConstraints}
-          relativeFixedConstraints={relativeFixedConstraints}
-          prevAssign={prevAssign}
-          leaderGroups={leaderGroups}
-          constraintToggles={constraintToggles}
-          emptySeats={seat.emptySeats}
-        />
+        {/* 解候補タブ（再計算中は前回の結果を減光表示のまま残し、スクロール位置を保つ） */}
+        {solutions.length > 0 && (
+        <div aria-busy={isSolving} className={isSolving ? 'opacity-40 pointer-events-none' : undefined}>
+          <SolutionTabs
+            solutions={solutions}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onAdopt={handleAdopt}
+            numRows={numRows}
+            numCols={numCols}
+            frontRows={frontRows}
+            backRows={backRows}
+            students={students}
+            groups={groups}
+            numGroups={numGroups}
+            fixedConstraints={fixedConstraints}
+            forbiddenConstraints={forbiddenConstraints}
+            seatGenderConstraints={seatGenderConstraints}
+            relativeFixedConstraints={relativeFixedConstraints}
+            prevAssign={prevAssign}
+            leaderGroups={leaderGroups}
+            constraintToggles={constraintToggles}
+            emptySeats={seat.emptySeats}
+          />
+        </div>
+        )}
 
         {/* 結果なし */}
-        {solveResult && solutions.length === 0 && (
+        {solveResult && solutions.length === 0 && !isSolving && (
           <div className="card text-center py-12 px-4 text-ink-muted">
             <p className="text-lg font-bold text-ink-soft">有効な席配置が見つかりませんでした</p>
             {solveResult.status === 'unsatisfiable' && (

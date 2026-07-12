@@ -67,8 +67,10 @@ export function useSolve() {
     setAdoptedAssignments(null)
     setAdjustingAssignments(null)
     setFinalizedAssignments(null)
+    // solveResult はここでクリアしない。再計算中に解候補が消えるとページの
+    // 高さが縮んでスクロール位置が先頭にクランプされてしまうため、
+    // 前回の結果を表示したまま（画面側で減光）新しい結果で置き換える
     setIsSolving(true)
-    setSolveResult(null)
 
     const prevSeatOptions: PrevSeatOptions = {
       differ_seat: constraintToggles.differ_seat,
