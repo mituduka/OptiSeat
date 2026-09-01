@@ -1,5 +1,5 @@
 # ASP ソルバ
-clingo>=5.8.0
+clingo>=5.8.2
 clorm>=1.6.2
 
 # Web フレームワーク
