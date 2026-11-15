@@ -372,6 +372,63 @@ class TestIdRange:
         }
         assert assigned[STUDENT_ID_MAX] == 2
 
+    def test_student_id_at_limit_with_all_rules(self):
+        # 上限 ID が全ルール（ソフト制約・前回席・班・各ハード制約）を通っても
+        # clingo の整数演算・集約でオーバーフローしないこと
+        big = STUDENT_ID_MAX
+        payload = {
+            "students": [
+                {"id": 1, "gender": "male", "tags": ["front_preferred"]},
+                {"id": 2, "gender": "female", "tags": []},
+                {"id": 3, "gender": "male", "tags": ["back_preferred"]},
+                {"id": big, "gender": "female", "tags": ["back_preferred"]},
+            ],
+            "seats": [
+                {"id": 1, "row": 1, "col": 1},
+                {"id": 2, "row": 1, "col": 2},
+                {"id": 3, "row": 2, "col": 1},
+                {"id": 4, "row": 2, "col": 2},
+            ],
+            "classroom": {"num_rows": 2, "num_cols": 2},
+            "groups": [
+                {"group_id": 1, "seat_ids": [1, 3]},
+                {"group_id": 2, "seat_ids": [2, 4]},
+            ],
+            "constraints": {
+                "forbidden": [
+                    {"student_id_a": big, "student_id_b": 2, "type": "same_group"}
+                ],
+                "relative_fixed": [
+                    {"student_id_a": 1, "student_id_b": 2, "d_row": 0, "d_col": 1}
+                ],
+                "leader_groups": [{"group_id": 0, "student_ids": [3, big]}],
+            },
+            "prev_assign": [
+                {"student_id": 1, "seat_id": 1},
+                {"student_id": 2, "seat_id": 2},
+                {"student_id": 3, "seat_id": 3},
+                {"student_id": big, "seat_id": 4},
+            ],
+            "options": {
+                "max_solutions": 1,
+                "timeout": 10,
+                "prev_options": {
+                    "differ_seat": True,
+                    "differ_neighbor": True,
+                    "differ_group": True,
+                },
+                "soft_toggles": {"gender_balance": True, "loneliness": True},
+            },
+        }
+        resp = client.post(ENDPOINTS["solve"], json=payload)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "ok", data
+        assigned = {
+            a["student_id"]: a["seat_id"] for a in data["solutions"][0]["assignments"]
+        }
+        assert big in assigned
+
 
 # ---------------------------------------------------------------------------
 # 既存 fixture・通常規模の入力は引き続き通る
