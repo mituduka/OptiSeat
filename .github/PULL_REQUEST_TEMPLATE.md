@@ -13,6 +13,7 @@
 - [ ] バックエンドテスト / Backend tests: `pytest backend/tests/ -q`
 - [ ] フロントエンドテスト / Frontend tests: `npm test`（`frontend/`）
 - [ ] 型チェック / Type check: `npm run lint`（`frontend/`）
+- [ ] 本番ビルド / Production build: `npm run build`（`frontend/`）
 - [ ] ruff: `ruff check backend/`
 
 ## 補足 / Notes

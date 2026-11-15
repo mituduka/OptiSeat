@@ -92,7 +92,7 @@ UI に見た目の変更を入れた場合は、撮影スクリプトで `.githu
 
 | 条件 | 詳細 |
 |---|---|
-| CI グリーン | `Backend (pytest + ruff)` と `Frontend (vitest + tsc)` が全件パス |
+| CI グリーン | `Backend (pytest + ruff)` と `Frontend (vitest + tsc)` が全件パス（Frontend ジョブは `next build` による本番ビルドも含む） |
 | メンテナの Approve | @mituduka（CODEOWNERS）の承認が必須です |
 | コメント全解決 | レビューコメントがすべて Resolved になっていること |
 | ブランチ最新 | PR ブランチが `main` の最新コミットを含んでいること |
