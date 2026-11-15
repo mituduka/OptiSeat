@@ -187,7 +187,7 @@ clingo は各優先度レベルで合計ペナルティを最小化し、**高�
 | S-04 | @4 | 孤独感緩和: 横隣∪同班に同性が1人もいない | `opt_loneliness` |
 | S-05 | @1 | 前回同席ペナルティ | `opt_prev_seat_differ` |
 | S-06 | @3 | 前回横隣ペアが今回も横隣 | `opt_prev_neighbor_differ` |
-| S-07 | @2 | 前回と同じ班メンバー構成 | `opt_prev_group_differ` |
+| S-07 | @2 | 今回の班のメンバー構成が前回のいずれかの班と完全一致（座席の位置は問わない。`(Gnew, Gprev)` の組ごとに 1） | `opt_prev_group_differ` |
 
 例: 前列機能に関する制約（S-01）
 

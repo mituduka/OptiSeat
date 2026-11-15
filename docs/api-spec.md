@@ -473,7 +473,7 @@ Pydantic による入力バリデーション失敗。
 | `group_gender_imbalance` | 2 | @4 | 班内に男女どちらかが0人の件数 |
 | `loneliness_violation` | 2 | @4 | 同性ピア（横隣∪同班）が0人の件数 |
 | `prev_neighbor_same` | 1 | @3 | 前回横隣だったペアが今回も横隣な件数 |
-| `prev_group_same` | 1 | @2 | 前回と全く同じメンバー構成の班の件数 |
+| `prev_group_same` | 1 | @2 | メンバー構成が前回のいずれかの班と完全一致する今回の班の件数（今回の班と前回の班の組の数。座席の位置は問わず、班を丸ごと入れ替えても該当する。前回の班は現在の班レイアウトの各班の座席に前回座っていた生徒の集合で、空の班は対象外） |
 | `prev_assign_same` | 1 | @1 | 前回と同じ座席に配置された件数 |
 | `fixed_violation` | null | null | 固定制約違反件数（手動変更で発生） |
 | `gender_constraint_violation` | null | null | 性別制約違反件数（手動変更で発生） |
