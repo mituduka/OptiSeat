@@ -19,8 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from backend.solver.runner import run_solver
 from backend.api.score import compute_score
+from backend.solver.runner import run_solver
 
 # ── テスト用サンプルデータの読み込み ─────────────────────────────────────────
 

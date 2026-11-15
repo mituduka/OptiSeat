@@ -9,6 +9,8 @@ POST /api/v1/score エンドポイントのテスト。（ソルバ不要）
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
@@ -82,7 +84,7 @@ def _bd(req: dict) -> dict:
 
 
 class TestScoreEndpointBasic:
-    BREAKDOWN_FIELDS = [
+    BREAKDOWN_FIELDS: ClassVar[list[str]] = [
         "front_preferred_violation",
         "back_preferred_violation",
         "group_gender_imbalance",
@@ -137,8 +139,8 @@ class TestScoreEndpointBasic:
 
 class TestComputeScoreFrontBack:
     # 2行1列グリッド: seat1=row1, seat2=row2
-    _SEATS = [{"id": 1, "row": 1, "col": 1}, {"id": 2, "row": 2, "col": 1}]
-    _CLASSROOM = {
+    _SEATS: ClassVar[list[dict]] = [{"id": 1, "row": 1, "col": 1}, {"id": 2, "row": 2, "col": 1}]
+    _CLASSROOM: ClassVar[dict] = {
         "num_rows": 2,
         "num_cols": 1,
         "front_rows": [1],
