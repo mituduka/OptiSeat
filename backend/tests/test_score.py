@@ -9,12 +9,14 @@ backend.api.score の compute_score / breakdown_to_total を直接呼び出す�
 
 from __future__ import annotations
 
+from typing import ClassVar
+
+from backend.api.schemas import ScoreBreakdown
 from backend.api.score import (
     CONSTRAINT_WEIGHTS,
     breakdown_to_total,
     compute_score,
 )
-from backend.api.schemas import ScoreBreakdown
 
 # ---------------------------------------------------------------------------
 # 共通テストデータ
@@ -155,8 +157,8 @@ class TestBreakdownToTotal:
 
 
 class TestFrontBackPreferred:
-    _SEATS2 = [{"id": 1, "row": 1, "col": 1}, {"id": 2, "row": 2, "col": 1}]
-    _CLS2 = {"num_rows": 2, "num_cols": 1, "front_rows": [1], "back_rows": [2]}
+    _SEATS2: ClassVar[list[dict]] = [{"id": 1, "row": 1, "col": 1}, {"id": 2, "row": 2, "col": 1}]
+    _CLS2: ClassVar[dict] = {"num_rows": 2, "num_cols": 1, "front_rows": [1], "back_rows": [2]}
 
     def test_front_preferred_in_front_row_no_violation(self):
         students = [{"id": 1, "gender": "male", "tags": ["front_preferred"]}]
