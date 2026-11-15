@@ -210,8 +210,18 @@ export const useStore = create<OptiSeatState>()(
       updateStudent: (id, patch) =>
         set((s) => {
           // 氏名の変更は計算結果に影響しないが、性別・タグは制約条件なので
-          // 変更時は配置パイプラインをクリアして古い解が残らないようにする
-          const affectsSolve = patch.gender !== undefined || patch.tags !== undefined
+          // 変更時は配置パイプラインをクリアして古い解が残らないようにする。
+          // 編集フォームは常に gender / tags も渡すため、渡されたかどうかではなく
+          // 現在値と比べて実際に変わったときだけクリアする（タグは順序を問わない）
+          const current = s.students.find((st) => st.id === id)
+          const genderChanged =
+            current !== undefined && patch.gender !== undefined && patch.gender !== current.gender
+          const tagsChanged =
+            current !== undefined &&
+            patch.tags !== undefined &&
+            (patch.tags.length !== current.tags.length ||
+              [...patch.tags].sort().join(',') !== [...current.tags].sort().join(','))
+          const affectsSolve = genderChanged || tagsChanged
           return {
             students: s.students.map((st) =>
               st.id === id ? { ...st, ...patch } : st,
