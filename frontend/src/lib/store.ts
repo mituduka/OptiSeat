@@ -107,8 +107,8 @@ interface OptiSeatState {
   beginSolve: (token: number) => void
   /**
    * 求解結果を反映する。token が現在の solveToken と一致しない（開始後に求解条件が
-   * 変わった）場合は何もせず false を返す。解が得られたときは古い採用・調整中・確定の
-   * 配置をクリアする（失敗時や解なしのときは既存の配置を残す）
+   * 変わった）場合は何もせず false を返す。採用・調整中・確定の配置には触れない
+   * （条件が同じなら既存の配置は有効なまま。置き換えるのは利用者が別の案を採用したとき）
    */
   commitSolveResult: (token: number, result: SolveResponse) => boolean
   /** 求解を終了する。より新しい求解が進行中なら何もしない */
@@ -474,12 +474,7 @@ export const useStore = create<OptiSeatState>()(
       beginSolve: (token) => set({ isSolving: true, solveToken: token }),
       commitSolveResult: (token, result) => {
         if (get().solveToken !== token) return false
-        set({
-          solveResult: result,
-          ...(result.solutions.length > 0
-            ? { adoptedAssignments: null, adjustingAssignments: null, finalizedAssignments: null }
-            : {}),
-        })
+        set({ solveResult: result })
         return true
       },
       endSolve: (token) =>

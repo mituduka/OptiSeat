@@ -70,9 +70,9 @@ export function useSolve() {
     }
     setErrorMsg(null)
     setWarnings([])
-    // 採用・調整中・確定の配置はここでは消さない。求解が失敗したときに
-    // 確定済みの配置が失われないよう、解が得られて結果を反映するとき
-    // （commitSolveResult）にまとめてクリアする。
+    // 採用・調整中・確定の配置は再計算では消さない（成否を問わない）。条件が
+    // 同じなら既存の配置は有効なままで、置き換えるのは別の案を採用したとき
+    // （handleAdopt）だけ。条件が変わったときは CLEAR_PIPELINE が消す。
     // solveResult もここでクリアしない。再計算中に解候補が消えるとページの
     // 高さが縮んでスクロール位置が先頭にクランプされてしまうため、
     // 前回の結果を表示したまま（画面側で減光）新しい結果で置き換える
@@ -155,7 +155,7 @@ export function useSolve() {
 
       const result = await solveSeatings(payload)
       // 計算中に求解条件が変わっていれば（CLEAR_PIPELINE で solveToken が
-      // 無効化される）旧条件の解なので破棄する
+      // 無効化される）旧条件の解なので破棄する。配置には触れない
       commitSolveResult(token, result)
     } catch (err) {
       if (useStore.getState().solveToken === token) {

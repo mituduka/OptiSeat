@@ -9,6 +9,11 @@ vi.mock('@/lib/api', () => ({
   validateConstraints: vi.fn(),
 }))
 
+const routerPush = vi.fn()
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: routerPush, replace: vi.fn() }),
+}))
+
 import { solveSeatings, validateConstraints } from '@/lib/api'
 
 const student = (id: number) => ({ id, name: `児童・生徒${id}`, gender: 'male' as const, tags: [] })
@@ -204,15 +209,61 @@ describe('useSolve - 失敗時に確定済み配置を消さない', () => {
     expect(state.finalizedAssignments).toEqual(PIPELINE)
   })
 
-  it('解が得られたら結果をセットし、古い採用・調整中・確定の配置をクリアする', async () => {
+  it('解が得られても採用・調整中・確定の配置は残る（置き換えるのは採用し直したときだけ）', async () => {
     vi.mocked(solveSeatings).mockResolvedValue(OK_WITH_SOLUTION)
     const { result } = renderHook(() => useSolve())
     await act(async () => { await result.current.handleSolve() })
     const state = useStore.getState()
     expect(state.solveResult).toEqual(OK_WITH_SOLUTION)
-    expect(state.adoptedAssignments).toBeNull()
+    expect(state.adoptedAssignments).toEqual(PIPELINE)
+    expect(state.adjustingAssignments).toEqual(PIPELINE)
+    expect(state.finalizedAssignments).toEqual(PIPELINE)
+  })
+
+  it('計算中に確定した配置は、条件が同じまま届いた解で消されない', async () => {
+    useStore.setState({ adjustingAssignments: null, finalizedAssignments: null })
+    const d = deferred<SolveResponse>()
+    vi.mocked(solveSeatings).mockReturnValue(d.promise)
+    const { result } = renderHook(() => useSolve())
+    let p!: Promise<void>
+    act(() => { p = result.current.handleSolve() })
+    await waitFor(() => expect(solveSeatings).toHaveBeenCalledOnce())
+
+    // 計算中に /finalize で入れ替えて確定した相当
+    const FINALIZED_DURING_SOLVE = [{ student_id: 1, seat_id: 2 }]
+    act(() => {
+      useStore.getState().setFinalizedAssignments(FINALIZED_DURING_SOLVE)
+      useStore.getState().setAdjustingAssignments(null)
+    })
+
+    await act(async () => { d.resolve(OK_WITH_SOLUTION); await p })
+    const state = useStore.getState()
+    expect(state.solveResult).toEqual(OK_WITH_SOLUTION)
+    expect(state.finalizedAssignments).toEqual(FINALIZED_DURING_SOLVE)
+    expect(state.adoptedAssignments).toEqual(PIPELINE)
+    expect(state.isSolving).toBe(false)
+  })
+})
+
+describe('useSolve - handleAdopt', () => {
+  it('別の案を採用すると finalized / adjusting が消え、adopted が差し替わる', async () => {
+    useStore.setState({
+      ...BASE_STATE,
+      students: FOUR_STUDENTS,
+      adoptedAssignments: PIPELINE,
+      adjustingAssignments: PIPELINE,
+      finalizedAssignments: PIPELINE,
+    })
+    vi.mocked(solveSeatings).mockResolvedValue(OK_WITH_SOLUTION)
+    const { result } = renderHook(() => useSolve())
+    await act(async () => { await result.current.handleSolve() })
+
+    act(() => { result.current.handleAdopt(0) })
+    const state = useStore.getState()
+    expect(state.adoptedAssignments).toEqual(OK_WITH_SOLUTION.solutions[0].assignments)
     expect(state.adjustingAssignments).toBeNull()
     expect(state.finalizedAssignments).toBeNull()
+    expect(routerPush).toHaveBeenCalledWith('/finalize')
   })
 })
 
