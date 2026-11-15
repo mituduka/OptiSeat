@@ -46,13 +46,13 @@ from typing import Any
 from clorm import FactBase
 from clorm.clingo import Control
 
-from .facts import build_factbase
-from .predicates import Assign
 from ..api.config import (
     SOLVER_MIN_DIFF_RATIO,
     SOLVER_RAND_FREQ,
     SOLVER_WORKERS,
 )
+from .facts import build_factbase
+from .predicates import Assign
 
 # .lp ファイルのディレクトリ（このファイルと同じ solver/ 配下の lp/）
 LP_DIR = Path(__file__).parent / "lp"
