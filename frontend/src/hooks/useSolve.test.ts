@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { useSolve } from './useSolve'
 import { useStore } from '@/lib/store'
+import type { SolveResponse, ScoreBreakdown } from '@/types'
 
 vi.mock('@/lib/api', () => ({
   solveSeatings: vi.fn(),
@@ -145,5 +146,149 @@ describe('useSolve - solveSeatings', () => {
     const { result } = renderHook(() => useSolve())
     await act(async () => { await result.current.handleSolve() })
     expect(result.current.isSolving).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 配置パイプラインの保持と古い応答の破棄
+// ---------------------------------------------------------------------------
+
+const PIPELINE = [{ student_id: 1, seat_id: 1 }]
+const FOUR_STUDENTS = [student(1), student(2), student(3), student(4)]
+const OK_WITH_SOLUTION: SolveResponse = {
+  status: 'ok',
+  elapsed_ms: 1,
+  solutions: [
+    { rank: 1, score: { total: 0, breakdown: {} as ScoreBreakdown }, assignments: [{ student_id: 1, seat_id: 4 }] },
+  ],
+  error: null,
+}
+
+function deferred<T>() {
+  let resolve!: (v: T) => void
+  let reject!: (e: unknown) => void
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
+  return { promise, resolve, reject }
+}
+
+describe('useSolve - 失敗時に確定済み配置を消さない', () => {
+  beforeEach(() => {
+    useStore.setState({
+      ...BASE_STATE,
+      students: FOUR_STUDENTS,
+      adoptedAssignments: PIPELINE,
+      adjustingAssignments: PIPELINE,
+      finalizedAssignments: PIPELINE,
+    })
+  })
+
+  it('solveSeatings が失敗したら採用・調整中・確定の配置は残る', async () => {
+    vi.mocked(solveSeatings).mockRejectedValue(new Error('network'))
+    const { result } = renderHook(() => useSolve())
+    await act(async () => { await result.current.handleSolve() })
+    const state = useStore.getState()
+    expect(result.current.errorMsg).toBe('network')
+    expect(state.adoptedAssignments).toEqual(PIPELINE)
+    expect(state.adjustingAssignments).toEqual(PIPELINE)
+    expect(state.finalizedAssignments).toEqual(PIPELINE)
+  })
+
+  it('解なし（unsatisfiable）の応答では結果はセットするが確定済みの配置は残す', async () => {
+    const unsat: SolveResponse = { status: 'unsatisfiable', elapsed_ms: 1, solutions: [], error: null }
+    vi.mocked(solveSeatings).mockResolvedValue(unsat)
+    const { result } = renderHook(() => useSolve())
+    await act(async () => { await result.current.handleSolve() })
+    const state = useStore.getState()
+    expect(state.solveResult).toEqual(unsat)
+    expect(state.adoptedAssignments).toEqual(PIPELINE)
+    expect(state.finalizedAssignments).toEqual(PIPELINE)
+  })
+
+  it('解が得られたら結果をセットし、古い採用・調整中・確定の配置をクリアする', async () => {
+    vi.mocked(solveSeatings).mockResolvedValue(OK_WITH_SOLUTION)
+    const { result } = renderHook(() => useSolve())
+    await act(async () => { await result.current.handleSolve() })
+    const state = useStore.getState()
+    expect(state.solveResult).toEqual(OK_WITH_SOLUTION)
+    expect(state.adoptedAssignments).toBeNull()
+    expect(state.adjustingAssignments).toBeNull()
+    expect(state.finalizedAssignments).toBeNull()
+  })
+})
+
+describe('useSolve - 計算中に条件が変わったら応答を破棄する', () => {
+  beforeEach(() => {
+    useStore.setState({ ...BASE_STATE, students: FOUR_STUDENTS })
+  })
+
+  async function startPendingSolve() {
+    const d = deferred<SolveResponse>()
+    vi.mocked(solveSeatings).mockReturnValue(d.promise)
+    const hook = renderHook(() => useSolve())
+    let p!: Promise<void>
+    act(() => { p = hook.result.current.handleSolve() })
+    await waitFor(() => expect(solveSeatings).toHaveBeenCalledOnce())
+    return { d, hook, done: () => p }
+  }
+
+  it('計算中に制約を追加すると、遅れて届いた旧条件の解はセットされない', async () => {
+    const { d, hook, done } = await startPendingSolve()
+    act(() => { useStore.getState().addFixed({ studentId: 1, row: 1, col: 1 }) })
+    await act(async () => { d.resolve(OK_WITH_SOLUTION); await done() })
+    expect(useStore.getState().solveResult).toBeNull()
+    expect(useStore.getState().isSolving).toBe(false)
+    expect(hook.result.current.solutions).toHaveLength(0)
+  })
+
+  it('計算中に生徒を削除すると、遅れて届いた旧条件の解はセットされない', async () => {
+    const { d, done } = await startPendingSolve()
+    act(() => { useStore.getState().removeStudent(4) })
+    await act(async () => { d.resolve(OK_WITH_SOLUTION); await done() })
+    expect(useStore.getState().solveResult).toBeNull()
+    expect(useStore.getState().isSolving).toBe(false)
+  })
+
+  it('計算中に条件が変わり、その後に採用・確定された配置は旧条件の応答で消されない', async () => {
+    const { d, done } = await startPendingSolve()
+    act(() => {
+      useStore.getState().addFixed({ studentId: 1, row: 1, col: 1 })
+      useStore.setState({ finalizedAssignments: PIPELINE })
+    })
+    await act(async () => { d.resolve(OK_WITH_SOLUTION); await done() })
+    expect(useStore.getState().finalizedAssignments).toEqual(PIPELINE)
+  })
+
+  it('求解に影響しない操作だけなら遅れて届いた解はセットされる', async () => {
+    const { d, done } = await startPendingSolve()
+    act(() => { useStore.getState().setChartTitle('1年1組') })
+    await act(async () => { d.resolve(OK_WITH_SOLUTION); await done() })
+    expect(useStore.getState().solveResult).toEqual(OK_WITH_SOLUTION)
+    expect(useStore.getState().isSolving).toBe(false)
+  })
+
+  it('計算中に条件が変わった後で失敗しても isSolving は false に戻る', async () => {
+    const { d, done } = await startPendingSolve()
+    act(() => { useStore.getState().addFixed({ studentId: 1, row: 1, col: 1 }) })
+    await act(async () => { d.reject(new Error('network')); await done() })
+    expect(useStore.getState().isSolving).toBe(false)
+  })
+})
+
+describe('useSolve - 多重実行の防止', () => {
+  it('handleSolve を同一 tick で2回呼んでも solveSeatings は1回だけ', async () => {
+    const d = deferred<SolveResponse>()
+    vi.mocked(solveSeatings).mockReturnValue(d.promise)
+    useStore.setState({ ...BASE_STATE, students: FOUR_STUDENTS })
+    const { result } = renderHook(() => useSolve())
+    let p1!: Promise<void>
+    let p2!: Promise<void>
+    act(() => {
+      p1 = result.current.handleSolve()
+      p2 = result.current.handleSolve()
+    })
+    await act(async () => { d.resolve(OK_WITH_SOLUTION); await Promise.all([p1, p2]) })
+    expect(solveSeatings).toHaveBeenCalledOnce()
+    expect(useStore.getState().isSolving).toBe(false)
+    expect(useStore.getState().solveResult).toEqual(OK_WITH_SOLUTION)
   })
 })
