@@ -196,7 +196,7 @@ clingo は各優先度レベルで合計ペナルティを最小化し、**高�
 ```prolog
 front_preferred_dist(S, D) :- tag(S, front_preferred), assign(S, R),
                               seat(R, RowR, _), D = #min { |RowR - RowF| : front_row(RowF) }.
-:~ front_preferred_dist(S, D), D > 0. [D@5, S]
+:~ front_preferred_dist(S, D), D > 0. [D@5, front, S]
 ```
 
 > [!NOTE]
