@@ -274,7 +274,7 @@ class TestValidateEndpoint:
 
     def test_warns_on_unknown_seat_id_in_fixed(self):
         constraints = {
-            "fixed": [{"student_id": 1, "seat_id": 999}],
+            "fixed": [{"student_id": 1, "seat_id": 99}],
             "forbidden": [],
         }
         resp = client.post(
@@ -314,7 +314,7 @@ class TestValidateEndpoint:
         """複数の問題がある場合、すべて警告として返されることを確認。"""
         constraints = {
             "fixed": [
-                {"student_id": 999, "seat_id": 888},  # both unknown
+                {"student_id": 999, "seat_id": 88},  # both unknown
             ],
             "forbidden": [],
         }
@@ -535,7 +535,7 @@ class TestValidateEndpointAdditional:
         constraints = {
             "fixed": [],
             "forbidden": [],
-            "seat_gender": [{"seat_id": 999, "allowed_gender": "male"}],
+            "seat_gender": [{"seat_id": 99, "allowed_gender": "male"}],
         }
         resp = client.post(
             "/api/v1/validate", json=self._make_req(constraints)
