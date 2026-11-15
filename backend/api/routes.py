@@ -21,27 +21,27 @@ from fastapi import APIRouter, Request
 from ..solver.runner import run_solver
 from .config import (
     MAX_STUDENTS,
-    SOLVER_TIMEOUT_DEFAULT,
-    SOLVER_TIMEOUT_MAX,
+    SEAT_MAX_COLS,
+    SEAT_MAX_ROWS,
     SOLVER_MAX_SOLUTIONS_DEFAULT,
     SOLVER_MAX_SOLUTIONS_MAX,
-    SEAT_MAX_ROWS,
-    SEAT_MAX_COLS,
+    SOLVER_TIMEOUT_DEFAULT,
+    SOLVER_TIMEOUT_MAX,
 )
 from .schemas import (
     AssignmentResult,
     ScoreRequest,
     ScoreResponse,
+    Solution,
+    SolutionScore,
     SolveError,
     SolveRequest,
     SolveResponse,
     SolveStatus,
-    Solution,
-    SolutionScore,
     ValidateRequest,
     ValidateResponse,
 )
-from .score import compute_score, breakdown_to_total
+from .score import breakdown_to_total, compute_score
 from .validation import run_validation
 
 logger = logging.getLogger(__name__)
@@ -121,9 +121,9 @@ async def solve(request: SolveRequest, raw_request: Request) -> SolveResponse:
                     data, max_solutions=max_solutions, timeout=timeout_sec
                 ),
             )
-    except Exception as exc:
+    except Exception:
         elapsed_ms = int((time.perf_counter() - start) * 1000)
-        logger.error("solve: solver internal error: %s", exc, exc_info=True)
+        logger.exception("solve: solver internal error")
         return SolveResponse(
             status=SolveStatus.unsatisfiable,
             elapsed_ms=elapsed_ms,

@@ -248,9 +248,7 @@ def compute_score(
         row_a, col_a = coord_a
         target = (row_a + rf["d_row"], col_a + rf["d_col"])
         target_seat = coord_to_seat.get(target)
-        if target_seat is None:
-            relative_fixed_violations += 1
-        elif assign_map.get(rf["student_id_b"]) != target_seat:
+        if target_seat is None or assign_map.get(rf["student_id_b"]) != target_seat:
             relative_fixed_violations += 1
 
     # 隣接禁止違反（ハード制約だが手動変更で発生しうる）
