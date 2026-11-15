@@ -164,13 +164,12 @@ def build_factbase(data: dict) -> FactBase:
             for s2, seat2 in prev_entries[i + 1 :]:
                 sd1 = seat_map.get(seat1)
                 sd2 = seat_map.get(seat2)
-                if sd1 and sd2:
-                    if (
-                        sd1["row"] == sd2["row"]
-                        and abs(sd1["col"] - sd2["col"]) == 1
-                    ):
-                        a, b = sorted([s1, s2])
-                        facts.append(PrevRowNeighbor(a=a, b=b))
+                if sd1 and sd2 and (
+                    sd1["row"] == sd2["row"]
+                    and abs(sd1["col"] - sd2["col"]) == 1
+                ):
+                    a, b = sorted([s1, s2])
+                    facts.append(PrevRowNeighbor(a=a, b=b))
 
     # O-3: 前回と異なる班メンバーを強制
     if prev_options.get("differ_group"):
