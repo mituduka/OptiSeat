@@ -41,3 +41,9 @@ jobs:
         run: npm run lint
       - name: Test (vitest)
         run: npm test
+      # tsc / vitest では検出できない Next.js 本番ビルドの破損（依存更新など）を検知する。
+      # ジョブ名はブランチ保護の必須チェックに登録されているため変更しないこと。
+      - name: Build (next build)
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
