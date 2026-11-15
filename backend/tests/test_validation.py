@@ -9,8 +9,8 @@ backend.api.validation の run_validation を直接呼び出す単体テスト�
 
 from __future__ import annotations
 
-from backend.api.validation import run_validation
 from backend.api.schemas import ValidateRequest
+from backend.api.validation import run_validation
 
 # ---------------------------------------------------------------------------
 # テストデータ構築ヘルパー
