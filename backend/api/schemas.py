@@ -13,14 +13,13 @@ from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 from .config import (
     MAX_STUDENTS,
-    SOLVER_TIMEOUT_DEFAULT,
-    SOLVER_TIMEOUT_MAX,
+    SEAT_MAX_COLS,
+    SEAT_MAX_ROWS,
     SOLVER_MAX_SOLUTIONS_DEFAULT,
     SOLVER_MAX_SOLUTIONS_MAX,
-    SEAT_MAX_ROWS,
-    SEAT_MAX_COLS,
+    SOLVER_TIMEOUT_DEFAULT,
+    SOLVER_TIMEOUT_MAX,
 )
-
 
 # ---------------------------------------------------------------------------
 # 入力スキーマ（共通部品）

@@ -18,7 +18,7 @@ clorm の命名規則:
                   ※ StringField（クォート付き文字列 "foo"）とは異なる
 """
 
-from clorm import Predicate, IntegerField, ConstantField
+from clorm import ConstantField, IntegerField, Predicate
 
 # ─── 入力述語（FactBase に格納する事実）──────────────────────────────────────
 
