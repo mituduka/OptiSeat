@@ -326,6 +326,19 @@ class SolveResponse(BaseModel):
     error: SolveError | None = None
 
 
+class SolverErrorDetail(BaseModel):
+    """ソルバ内部エラー時（HTTP 500）の detail。利用者向けの文言のみを持つ。"""
+
+    code: str
+    message: str
+
+
+class SolverErrorResponse(BaseModel):
+    """ソルバ内部エラー時（HTTP 500）のレスポンスボディ（OpenAPI 用）。"""
+
+    detail: SolverErrorDetail
+
+
 # ---------------------------------------------------------------------------
 # ScoreRequest / ScoreResponse
 # ---------------------------------------------------------------------------

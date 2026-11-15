@@ -365,8 +365,10 @@ export default function SolvePage() {
         </div>
         )}
 
-        {/* 結果なし */}
-        {solveResult && solutions.length === 0 && !isSolving && (
+        {/* 結果なし（直近の実行が API エラーで失敗した場合は前回の「解なし」案内を出さない。
+            useSolve はエラー時に solveResult を更新しないため、残った前回結果で
+            「制約を緩めて」と誤って促さないようにする） */}
+        {solveResult && solutions.length === 0 && !isSolving && !errorMsg && (
           <div className="card text-center py-12 px-4 text-ink-muted">
             <p className="text-lg font-bold text-ink-soft">有効な席配置が見つかりませんでした</p>
             {solveResult.status === 'unsatisfiable' && (
