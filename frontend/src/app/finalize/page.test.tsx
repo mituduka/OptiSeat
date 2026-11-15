@@ -85,3 +85,43 @@ describe('FinalizePage hydration', () => {
     expect(screen.getByText(/採用された配置がありません/)).toBeInTheDocument()
   })
 })
+
+describe('FinalizePage 確定後に調整へ戻る', () => {
+  // 採用した元の解（A）と、手動で入れ替えてから確定した配置（B）
+  const ADOPTED = [{ student_id: 1, seat_id: 1 }, { student_id: 2, seat_id: 2 }]
+  const FINALIZED = [{ student_id: 1, seat_id: 2 }, { student_id: 2, seat_id: 1 }]
+
+  it('調整中の配置がなければ、採用案ではなく確定済みの配置から再開する', async () => {
+    hydratedValue = true
+    useStore.setState({
+      students: [
+        { id: 1, name: '佐藤 健太', gender: 'male', tags: [] },
+        { id: 2, name: '鈴木 花子', gender: 'female', tags: [] },
+      ],
+      adoptedAssignments: ADOPTED,
+      adjustingAssignments: null, // handleFinalize が null にする
+      finalizedAssignments: FINALIZED,
+    })
+    render(<FinalizePage />)
+
+    expect(capturedSeatingResultProps.assignments).toEqual(FINALIZED)
+    await waitFor(() => expect(scoreAssignmentsMock).toHaveBeenCalled())
+    expect(scoreAssignmentsMock.mock.calls[0][0].assignments).toEqual(FINALIZED)
+  })
+
+  it('調整中の配置があればそれを最優先する', () => {
+    hydratedValue = true
+    const ADJUSTING = [{ student_id: 1, seat_id: 3 }, { student_id: 2, seat_id: 1 }]
+    useStore.setState({
+      students: [
+        { id: 1, name: '佐藤 健太', gender: 'male', tags: [] },
+        { id: 2, name: '鈴木 花子', gender: 'female', tags: [] },
+      ],
+      adoptedAssignments: ADOPTED,
+      adjustingAssignments: ADJUSTING,
+      finalizedAssignments: FINALIZED,
+    })
+    render(<FinalizePage />)
+    expect(capturedSeatingResultProps.assignments).toEqual(ADJUSTING)
+  })
+})

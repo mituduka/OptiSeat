@@ -65,8 +65,10 @@ function FinalizeContent() {
   const allSeats = generateSeats(numRows, numCols)
   const seats = allSeats.filter((s) => !emptySeats.some((c) => c.row === s.row && c.col === s.col))
 
-  // フォールバック: adjustingAssignments → adoptedAssignments → finalizedAssignments → []
-  const initialAssignments = adjustingAssignments ?? adoptedAssignments ?? finalizedAssignments ?? []
+  // フォールバック: adjustingAssignments → finalizedAssignments → adoptedAssignments → []
+  // 確定後に表示ページから戻ったときは、手動の入れ替えを含む確定配置から調整を再開する
+  // （adopted はソルバの元の解のまま。別の案を採用し直すと handleAdopt が finalized を消す）
+  const initialAssignments = adjustingAssignments ?? finalizedAssignments ?? adoptedAssignments ?? []
   const [assignments, setAssignments] = useState<AssignmentResult[]>(initialAssignments)
   const [score, setScore] = useState<SolutionScore | null>(null)
   const [isScoring, setIsScoring] = useState(false)
