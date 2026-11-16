@@ -8,6 +8,9 @@ import { generateSeats, groupsToApi, prevAssignToApi, seatGenderToApi, fixedToAp
 import { CONSTRAINT_META } from '@/lib/constraintLabels'
 import type { SolveRequest, ValidationWarning, PrevSeatOptions, Solution } from '@/types'
 
+// 求解リクエストの通し番号（ページ遷移でフックが再マウントされても重複しないようモジュールに置く）
+let solveRequestSeq = 0
+
 export function useSolve() {
   const router = useRouter()
   const {
@@ -22,10 +25,10 @@ export function useSolve() {
     prevAssign,
     solveResult,
     isSolving,
-    setSolveResult,
-    setIsSolving,
+    beginSolve,
+    commitSolveResult,
+    endSolve,
     adoptSolution,
-    setAdoptedAssignments,
     setAdjustingAssignments,
     setFinalizedAssignments,
     constraintToggles,
@@ -50,6 +53,9 @@ export function useSolve() {
   const seats = allSeats.filter((s) => !emptySeats.some((c) => c.row === s.row && c.col === s.col))
 
   async function handleSolve() {
+    // 多重実行の防止（ボタンの disabled に加えて）。同一 tick の連続呼び出しでは
+    // クロージャの isSolving が古いままなので、ストアの最新値を見る
+    if (useStore.getState().isSolving) return
     if (students.length === 0) {
       setErrorMsg('名簿が登録されていません')
       return
@@ -64,13 +70,14 @@ export function useSolve() {
     }
     setErrorMsg(null)
     setWarnings([])
-    setAdoptedAssignments(null)
-    setAdjustingAssignments(null)
-    setFinalizedAssignments(null)
-    // solveResult はここでクリアしない。再計算中に解候補が消えるとページの
+    // 採用・調整中・確定の配置は再計算では消さない（成否を問わない）。条件が
+    // 同じなら既存の配置は有効なままで、置き換えるのは別の案を採用したとき
+    // （handleAdopt）だけ。条件が変わったときは CLEAR_PIPELINE が消す。
+    // solveResult もここでクリアしない。再計算中に解候補が消えるとページの
     // 高さが縮んでスクロール位置が先頭にクランプされてしまうため、
     // 前回の結果を表示したまま（画面側で減光）新しい結果で置き換える
-    setIsSolving(true)
+    const token = ++solveRequestSeq
+    beginSolve(token)
 
     const prevSeatOptions: PrevSeatOptions = {
       differ_seat: constraintToggles.differ_seat,
@@ -147,11 +154,15 @@ export function useSolve() {
       }
 
       const result = await solveSeatings(payload)
-      setSolveResult(result)
+      // 計算中に求解条件が変わっていれば（CLEAR_PIPELINE で solveToken が
+      // 無効化される）旧条件の解なので破棄する。配置には触れない
+      commitSolveResult(token, result)
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : '不明なエラーが発生しました')
+      if (useStore.getState().solveToken === token) {
+        setErrorMsg(err instanceof Error ? err.message : '不明なエラーが発生しました')
+      }
     } finally {
-      setIsSolving(false)
+      endSolve(token)
     }
   }
 

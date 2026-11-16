@@ -10,8 +10,10 @@ FastAPI TestClient を使い、各エンドポイントの動作を検証する�
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
@@ -625,43 +627,54 @@ class TestValidateEndpointAdditional:
 
 
 # ===========================================================================
-# H-1 修正テスト: ソルバ内部エラー時に 500 ではなく適切なレスポンスを返す
+# ソルバ内部エラー: 「解なし」と区別できるよう HTTP 500 + 機械可読な detail を返す
 # ===========================================================================
+
+SOLVER_ERROR_BODY = {
+    "detail": {
+        "code": "SOLVER_ERROR",
+        "message": "配置の計算中に内部エラーが発生しました。",
+    }
+}
 
 
 class TestSolverErrorHandling:
-    """runner.run_solver が例外を送出した場合、API が 500 でなく適切なレスポンスを返すことを確認"""
+    """runner.run_solver が例外を送出した場合、API が 500 と SOLVER_ERROR を返すことを確認"""
 
-    def test_solver_runtime_error_returns_non_500(self, monkeypatch):
-        """run_solver が RuntimeError を起こしても HTTP 500 にならない"""
+    @pytest.mark.parametrize(
+        "exc",
+        [
+            RuntimeError("テスト用ソルバエラー /secret/path/seat.lp"),
+            ValueError("unexpected error"),
+        ],
+    )
+    def test_solver_exception_returns_500_with_error_detail(
+        self, monkeypatch, caplog, exc
+    ):
+        """例外の種類によらず 500 と {detail: {code, message}} を返し、内部情報は含めない"""
         import backend.api.routes as routes_module
 
         def mock_run_solver(*args, **kwargs):
-            raise RuntimeError("テスト用ソルバエラー")
+            raise exc
 
         monkeypatch.setattr(routes_module, "run_solver", mock_run_solver)
 
-        resp = client.post("/api/v1/solve", json=SAMPLE_REQUEST)
-        assert resp.status_code == 200  # 500 ではない
-        data = resp.json()
-        assert data["status"] in ("unsatisfiable", "timeout")
-        assert data.get("error") is not None
-        assert data["error"]["code"] == "SOLVER_ERROR"
+        with caplog.at_level(logging.ERROR, logger="backend.api.routes"):
+            resp = client.post("/api/v1/solve", json=SAMPLE_REQUEST)
 
-    def test_solver_unexpected_exception_returns_non_500(self, monkeypatch):
-        """run_solver が ValueError 等の予期しない例外を起こしても HTTP 500 にならない"""
-        import backend.api.routes as routes_module
-
-        def mock_run_solver(*args, **kwargs):
-            raise ValueError("unexpected error")
-
-        monkeypatch.setattr(routes_module, "run_solver", mock_run_solver)
-
-        resp = client.post("/api/v1/solve", json=SAMPLE_REQUEST)
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] in ("unsatisfiable", "timeout")
-        assert data["error"]["code"] == "SOLVER_ERROR"
+        assert resp.status_code == 500
+        assert resp.json() == SOLVER_ERROR_BODY
+        # 例外メッセージ・内部パス・スタックトレースは応答に含めない
+        assert str(exc) not in resp.text
+        assert "/secret/path" not in resp.text
+        assert "Traceback" not in resp.text
+        # 「解なし」（200 + status=unsatisfiable + UNSATISFIABLE）の応答形とは区別される
+        # （解なし側は TestSolveEndpoint.test_unsatisfiable_when_two_students_fixed_to_same_seat）
+        assert "status" not in resp.json()
+        # 例外はログに残す
+        assert any(
+            r.exc_info is not None and r.exc_info[1] is exc for r in caplog.records
+        )
 
 
 # ===========================================================================

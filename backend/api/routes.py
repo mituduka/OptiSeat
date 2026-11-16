@@ -16,7 +16,7 @@ import logging
 import time
 
 import clingo
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from ..solver.runner import run_solver
 from .config import (
@@ -36,6 +36,8 @@ from .schemas import (
     SolutionScore,
     SolveError,
     SolveRequest,
+    SolverErrorDetail,
+    SolverErrorResponse,
     SolveResponse,
     SolveStatus,
     ValidateRequest,
@@ -88,7 +90,16 @@ async def health() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/api/v1/solve", response_model=SolveResponse)
+@router.post(
+    "/api/v1/solve",
+    response_model=SolveResponse,
+    responses={
+        500: {
+            "description": "ソルバ内部エラー（制約矛盾による「解なし」とは区別される）",
+            "model": SolverErrorResponse,
+        }
+    },
+)
 async def solve(request: SolveRequest, raw_request: Request) -> SolveResponse:
     """
     席替え計算を実行し、最適な座席配置候補を返す
@@ -97,6 +108,8 @@ async def solve(request: SolveRequest, raw_request: Request) -> SolveResponse:
       （一部ショットがタイムアウトしても、解が1件以上あれば ok を返す）
     - 制約矛盾で解なし: status=unsatisfiable
     - 制限時間内に解が1件も見つからなかった場合: status=timeout
+    - ソルバ内部エラー（.lp 読み込み失敗など）: HTTP 500,
+      detail={code: "SOLVER_ERROR", message: ...}（例外内容やパスは含めない）
     """
     data = request.model_dump()
     timeout_sec = request.options.timeout
@@ -122,17 +135,15 @@ async def solve(request: SolveRequest, raw_request: Request) -> SolveResponse:
                 ),
             )
     except Exception:
-        elapsed_ms = int((time.perf_counter() - start) * 1000)
+        # 例外の詳細（スタックトレース・内部パス）はログにのみ残し、応答には含めない
         logger.exception("solve: solver internal error")
-        return SolveResponse(
-            status=SolveStatus.unsatisfiable,
-            elapsed_ms=elapsed_ms,
-            solutions=[],
-            error=SolveError(
+        raise HTTPException(
+            status_code=500,
+            detail=SolverErrorDetail(
                 code="SOLVER_ERROR",
                 message="配置の計算中に内部エラーが発生しました。",
-            ),
-        )
+            ).model_dump(),
+        ) from None
     elapsed_ms = int((time.perf_counter() - start) * 1000)
 
     # ステータス判定

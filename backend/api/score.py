@@ -199,9 +199,16 @@ def compute_score(
 
     prev_neighbor_same = len(prev_neighbor_pairs & cur_neighbor_pairs)
 
-    # S-07: prev_group_same（前回と同班構成の班の件数）
+    # S-07: prev_group_same（前回と同じメンバー構成の班の件数）
+    # soft.lp の same_group_composition(Gnew, Gprev) と同じ定義:
+    #   前回の班 = 現在の班レイアウトの各班の座席に前回座っていた生徒の集合
+    #   （空の前回班は対象外。facts.py が prev_group_id を出さないのと同じ）。
+    #   今回の班 Gnew のメンバー集合が前回のいずれかの班 Gprev のメンバー集合と
+    #   一致する (Gnew, Gprev) の組を数える。座席の位置は問わないため、班を
+    #   丸ごと入れ替えた配置も違反になる。
     # prev_map（S-05 で構築済み）を再利用する
-    prev_group_same = 0
+    prev_group_members: list[frozenset[int]] = []
+    cur_group_members: list[frozenset[int]] = []
     for group in request_data.get("groups", []):
         group_seat_set = set(group["seat_ids"])
         prev_members = frozenset(
@@ -209,13 +216,21 @@ def compute_score(
             for sid, seat_id in prev_map.items()
             if seat_id in group_seat_set
         )
-        cur_members = frozenset(
-            seat_to_student[sid_seat]
-            for sid_seat in group_seat_set
-            if sid_seat in seat_to_student
+        if prev_members:
+            prev_group_members.append(prev_members)
+        cur_group_members.append(
+            frozenset(
+                seat_to_student[sid_seat]
+                for sid_seat in group_seat_set
+                if sid_seat in seat_to_student
+            )
         )
-        if prev_members and prev_members == cur_members:
-            prev_group_same += 1
+    prev_group_same = sum(
+        1
+        for cur_members in cur_group_members
+        for prev_members in prev_group_members
+        if cur_members == prev_members
+    )
 
     # 固定制約違反（ハード制約だが手動変更で発生しうる）
     fixed_violations = 0

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { solveSeatings, scoreAssignments, validateConstraints, fetchConfig } from './api'
+import { solveSeatings, scoreAssignments, validateConstraints, fetchConfig, ApiError } from './api'
 import type { SolveRequest, SolveResponse, ScoreRequest, ScoreResponse, ValidateRequest, ValidateResponse } from '@/types'
 
 const MOCK_REQUEST: SolveRequest = {
@@ -95,6 +95,88 @@ describe('solveSeatings', () => {
     )
 
     await expect(solveSeatings(MOCK_REQUEST)).rejects.toThrow('Network Error')
+  })
+})
+
+describe('エラー応答ボディの解釈', () => {
+  function stubErrorResponse(status: number, body: unknown) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status,
+        text: () => Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
+      }),
+    )
+  }
+
+  async function catchError(p: Promise<unknown>): Promise<ApiError> {
+    try {
+      await p
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError)
+      return err as ApiError
+    }
+    throw new Error('例外が投げられなかった')
+  }
+
+  it('500 の SOLVER_ERROR ボディからサーバー側の問題である旨のメッセージを組み立てる', async () => {
+    stubErrorResponse(500, {
+      detail: { code: 'SOLVER_ERROR', message: '配置の計算中に内部エラーが発生しました。' },
+    })
+
+    const err = await catchError(solveSeatings(MOCK_REQUEST))
+    expect(err.status).toBe(500)
+    expect(err.code).toBe('SOLVER_ERROR')
+    expect(err.message).toContain('サーバー側の問題で計算できませんでした')
+    expect(err.message).toContain('時間をおいて再実行してください')
+    expect(err.message).toContain('配置の計算中に内部エラーが発生しました')
+    expect(err.message).toContain('SOLVER_ERROR')
+    // 生の JSON や、制約の矛盾を疑わせる文言は出さない
+    expect(err.message).not.toContain('{')
+    expect(err.message).not.toContain('"detail"')
+    expect(err.message).not.toContain('制約を緩め')
+    expect(err.message).not.toContain('制約を同時に満たす')
+  })
+
+  it('422 の detail 配列から入力エラーのメッセージを組み立てる', async () => {
+    stubErrorResponse(422, {
+      detail: [
+        {
+          type: 'value_error',
+          loc: ['body'],
+          msg: 'Value error, 児童・生徒数が座席数を超えています',
+          input: {},
+        },
+        {
+          type: 'literal_error',
+          loc: ['body', 'students', 0, 'gender'],
+          msg: "Input should be 'male' or 'female'",
+          input: 'unknown',
+        },
+      ],
+    })
+
+    const err = await catchError(solveSeatings(MOCK_REQUEST))
+    expect(err.status).toBe(422)
+    expect(err.code).toBeNull()
+    expect(err.message).toBe(
+      "入力内容に誤りがあります: 児童・生徒数が座席数を超えています / students.0.gender: Input should be 'male' or 'female'（API エラー 422）",
+    )
+    expect(err.message).not.toContain('"detail"')
+  })
+
+  it('detail が文字列のときはその文言を使う', async () => {
+    stubErrorResponse(404, { detail: 'Not Found' })
+    const err = await catchError(solveSeatings(MOCK_REQUEST))
+    expect(err.message).toBe('Not Found（API エラー 404）')
+  })
+
+  it('JSON でない 5xx 本文はサーバー側の問題として扱い、ステータスと本文を残す', async () => {
+    stubErrorResponse(502, 'Bad Gateway')
+    const err = await catchError(solveSeatings(MOCK_REQUEST))
+    expect(err.message).toContain('サーバー側の問題で処理できませんでした')
+    expect(err.message).toContain('API エラー 502: Bad Gateway')
   })
 })
 

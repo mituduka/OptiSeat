@@ -35,6 +35,9 @@ interface OptiSeatState {
   // ソルバ結果
   solveResult: SolveResponse | null
   isSolving: boolean
+  // 進行中の求解リクエストの識別子（永続化しない）。求解に影響する変更で
+  // CLEAR_PIPELINE により null に戻るので、応答時に一致しなければ旧条件の解として破棄する
+  solveToken: number | null
 
   // 配置採用（配置調整ページ用）
   adoptedAssignments: AssignmentResult[] | null
@@ -100,6 +103,16 @@ interface OptiSeatState {
   // アクション: 結果
   setSolveResult: (result: SolveResponse | null) => void
   setIsSolving: (v: boolean) => void
+  /** 求解を開始する（isSolving を立て、リクエストの識別子を記録する） */
+  beginSolve: (token: number) => void
+  /**
+   * 求解結果を反映する。token が現在の solveToken と一致しない（開始後に求解条件が
+   * 変わった）場合は何もせず false を返す。採用・調整中・確定の配置には触れない
+   * （条件が同じなら既存の配置は有効なまま。置き換えるのは利用者が別の案を採用したとき）
+   */
+  commitSolveResult: (token: number, result: SolveResponse) => boolean
+  /** 求解を終了する。より新しい求解が進行中なら何もしない */
+  endSolve: (token: number) => void
 
   // アクション: 配置採用
   adoptSolution: (assignments: AssignmentResult[]) => void
@@ -146,11 +159,13 @@ const CLEAR_PIPELINE = {
   adoptedAssignments: null,
   adjustingAssignments: null,
   finalizedAssignments: null,
+  // 進行中の求解リクエストを無効化し、遅れて届いた旧条件の解を破棄させる
+  solveToken: null,
 } as const
 
 export const useStore = create<OptiSeatState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       students: [],
       seat: { numRows: 2, numCols: 3, frontRowCount: 1, backRowCount: 1, emptySeats: [], numGroups: 1 },
       groups: [],
@@ -162,6 +177,7 @@ export const useStore = create<OptiSeatState>()(
       prevAssign: [],
       solveResult: null,
       isSolving: false,
+      solveToken: null,
       adoptedAssignments: null,
       adjustingAssignments: null,
       finalizedAssignments: null,
@@ -210,8 +226,18 @@ export const useStore = create<OptiSeatState>()(
       updateStudent: (id, patch) =>
         set((s) => {
           // 氏名の変更は計算結果に影響しないが、性別・タグは制約条件なので
-          // 変更時は配置パイプラインをクリアして古い解が残らないようにする
-          const affectsSolve = patch.gender !== undefined || patch.tags !== undefined
+          // 変更時は配置パイプラインをクリアして古い解が残らないようにする。
+          // 編集フォームは常に gender / tags も渡すため、渡されたかどうかではなく
+          // 現在値と比べて実際に変わったときだけクリアする（タグは順序を問わない）
+          const current = s.students.find((st) => st.id === id)
+          const genderChanged =
+            current !== undefined && patch.gender !== undefined && patch.gender !== current.gender
+          const tagsChanged =
+            current !== undefined &&
+            patch.tags !== undefined &&
+            (patch.tags.length !== current.tags.length ||
+              [...patch.tags].sort().join(',') !== [...current.tags].sort().join(','))
+          const affectsSolve = genderChanged || tagsChanged
           return {
             students: s.students.map((st) =>
               st.id === id ? { ...st, ...patch } : st,
@@ -445,6 +471,18 @@ export const useStore = create<OptiSeatState>()(
       // 結果
       setSolveResult: (solveResult) => set({ solveResult }),
       setIsSolving: (isSolving) => set({ isSolving }),
+      beginSolve: (token) => set({ isSolving: true, solveToken: token }),
+      commitSolveResult: (token, result) => {
+        if (get().solveToken !== token) return false
+        set({ solveResult: result })
+        return true
+      },
+      endSolve: (token) =>
+        set((s) =>
+          s.solveToken === null || s.solveToken === token
+            ? { isSolving: false, solveToken: null }
+            : s,
+        ),
 
       // 配置採用
       adoptSolution: (assignments) => set({ adoptedAssignments: [...assignments] }),
@@ -500,6 +538,7 @@ export const useStore = create<OptiSeatState>()(
           prevAssign: [],
           solveResult: null,
           isSolving: false,
+          solveToken: null,
           adoptedAssignments: null,
           adjustingAssignments: null,
           finalizedAssignments: null,

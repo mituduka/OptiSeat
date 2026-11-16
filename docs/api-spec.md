@@ -212,28 +212,53 @@ clingoソルバをマルチシードループで実行し、重複排除した�
 }
 ```
 
-**レスポンス: 200 OK（ソルバ内部エラー）**
+**レスポンス: 500 Internal Server Error（ソルバ内部エラー）**
 
-ソルバ初期化・実行中に予期しない例外が発生した場合。  
-HTTP 500 ではなく 200 で返す。
+ソルバ初期化・実行中に予期しない例外が発生した場合（`.lp` ファイルの読み込み失敗など）。  
+制約矛盾による「解なし」（200 + `status: "unsatisfiable"`）とは HTTP ステータスで区別する。  
+ボディは `SolveResponse` ではなく `detail` のみを持ち、`code` は機械可読なエラーコード、`message` は利用者向けの日本語文。  
+例外の内容・スタックトレース・内部パスは応答に含めず、サーバーログ（`logger.exception`）にのみ出力する。
 
 ```json
 {
-  "status": "unsatisfiable",
-  "elapsed_ms": 45,
-  "solutions": [],
-  "error": {
+  "detail": {
     "code": "SOLVER_ERROR",
     "message": "配置の計算中に内部エラーが発生しました。"
   }
 }
 ```
 
-**レスポンス: 422（バリデーションエラー）**
+フロントエンドは `code: "SOLVER_ERROR"` を受け取ると、制約の見直しではなく時間をおいた再実行を促すメッセージを表示する。
+
+**レスポンス: 422 Unprocessable Entity（バリデーションエラー）**
 
 Pydantic による入力バリデーション失敗。  
 例：`gender` に `"unknown"` を渡した場合、児童・生徒数 > 座席数 の場合、リストの件数や ID が [§5 入力サイズ上限](#入力サイズ上限) を超えた場合など。  
-`/api/v1/score` と `/api/v1/validate` も同じ上限で 422 を返す。
+`/api/v1/score` と `/api/v1/validate` も同じ上限で 422 を返す。  
+ボディは FastAPI 標準の形式で、`detail` はエラー項目の配列。
+
+```json
+{
+  "detail": [
+    {
+      "type": "literal_error",
+      "loc": ["body", "students", 0, "gender"],
+      "msg": "Input should be 'male' or 'female'",
+      "input": "unknown"
+    }
+  ]
+}
+```
+
+**ステータスと HTTP コードの対応**
+
+| HTTP | `status` | `error.code` / `detail.code` | 意味 |
+|------|----------|------------------------------|------|
+| 200 | `ok` | — | 解が 1 件以上得られた（一部ショットのタイムアウトを含む） |
+| 200 | `unsatisfiable` | `error.code = "UNSATISFIABLE"` | 制約を同時に満たす座席配置が存在しない |
+| 200 | `timeout` | —（`error` は `null`） | 制限時間内に解が 1 件も得られなかった |
+| 422 | — | —（`detail` は配列） | 入力バリデーションエラー |
+| 500 | — | `detail.code = "SOLVER_ERROR"` | ソルバ内部エラー（サーバー側の不具合。入力や制約の問題ではない） |
 
 ### 4.4 POST /api/v1/score
 
@@ -503,7 +528,7 @@ Pydantic による入力バリデーション失敗。
 | `group_gender_imbalance` | 2 | @4 | 班内に男女どちらかが0人の件数 |
 | `loneliness_violation` | 2 | @4 | 同性ピア（横隣∪同班）が0人の件数 |
 | `prev_neighbor_same` | 1 | @3 | 前回横隣だったペアが今回も横隣な件数 |
-| `prev_group_same` | 1 | @2 | 前回と全く同じメンバー構成の班の件数 |
+| `prev_group_same` | 1 | @2 | メンバー構成が前回のいずれかの班と完全一致する今回の班の件数（今回の班と前回の班の組の数。座席の位置は問わず、班を丸ごと入れ替えても該当する。前回の班は現在の班レイアウトの各班の座席に前回座っていた生徒の集合で、空の班は対象外） |
 | `prev_assign_same` | 1 | @1 | 前回と同じ座席に配置された件数 |
 | `fixed_violation` | null | null | 固定制約違反件数（手動変更で発生） |
 | `gender_constraint_violation` | null | null | 性別制約違反件数（手動変更で発生） |
