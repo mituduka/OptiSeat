@@ -6,6 +6,7 @@ import { Pin } from 'lucide-react'
 import { generateSeats, coordsToSeatId } from '@/lib/seats'
 import { getGroupStyle } from '@/lib/groupColors'
 import { violationText } from '@/lib/constraintLabels'
+import { findPrevGroupSameIds } from '@/lib/prevGroup'
 import { truncateLeaderLabel } from '@/lib/pdf/seatingModel'
 import GridScrollArea from '@/components/GridScrollArea'
 import { DraggableSeat } from './DraggableSeat'
@@ -159,18 +160,13 @@ export default function SeatingGrid({
     }
   }
 
-  // 現在と前回で班構成が一致するグループIDのセット
-  const prevGroupSameIds = new Set<number>()
-  if (prevAssign.length > 0) {
-    for (const group of groups) {
-      const groupSeatIds = new Set(group.seatCoords.map(({ row, col }) => coordsToSeatId(row, col, numCols)))
-      const prevMembers = new Set(prevAssign.filter((p) => groupSeatIds.has(coordsToSeatId(p.row, p.col, numCols))).map((p) => p.student_id))
-      const curMembers = new Set<number>()
-      for (const sid of groupSeatIds) { const s = seatToStudent.get(sid); if (s) curMembers.add(s.id) }
-      if (prevMembers.size > 0 && prevMembers.size === curMembers.size && [...prevMembers].every((id) => curMembers.has(id)))
-        prevGroupSameIds.add(group.groupId)
-    }
-  }
+  // 前回のいずれかの班とメンバー構成が一致する今回の班IDのセット（座席の位置は問わない）
+  const prevGroupSameIds = findPrevGroupSameIds(
+    groups,
+    prevAssign,
+    new Map([...seatToStudent].map(([seatId, s]) => [seatId, s.id])),
+    numCols,
+  )
 
   // 行ごとにグルーピング
   const rows: SeatInput[][] = []
