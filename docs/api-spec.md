@@ -233,7 +233,8 @@ clingoソルバをマルチシードループで実行し、重複排除した�
 **レスポンス: 422 Unprocessable Entity（バリデーションエラー）**
 
 Pydantic による入力バリデーション失敗。  
-例：`gender` に `"unknown"` を渡した場合、児童・生徒数 > 座席数 の場合など。  
+例：`gender` に `"unknown"` を渡した場合、児童・生徒数 > 座席数 の場合、リストの件数や ID が [§5 入力サイズ上限](#入力サイズ上限) を超えた場合など。  
+`/api/v1/score` と `/api/v1/validate` も同じ上限で 422 を返す。  
 ボディは FastAPI 標準の形式で、`detail` はエラー項目の配列。
 
 ```json
@@ -355,6 +356,35 @@ Pydantic による入力バリデーション失敗。
 
 ## 5. スキーマ定義
 
+### 入力サイズ上限
+
+リクエストのリスト件数と ID の値域には上限があり、超えると 422 を返す。
+上限はすべて環境変数 `MAX_STUDENTS`（N、既定50）・`SEAT_MAX_ROWS`（既定12）・`SEAT_MAX_COLS`（既定12）から導出する（`/api/v1/config` で取得できる値と同じ）。
+以下、`MAX_SEATS = SEAT_MAX_ROWS × SEAT_MAX_COLS`（既定144）とする。
+値はフロントエンドが正当な操作で送りうる最大件数以上になるよう決めている。
+存在しない児童・生徒 ID や座席 ID の参照は、値域内であれば拒否せず `/api/v1/validate` の警告（`UNKNOWN_STUDENT_ID` / `UNKNOWN_SEAT_ID`）として扱う。
+
+| 対象 | 上限 | 既定値 | 根拠 |
+|------|------|--------|------|
+| `students` | N | 50 | 名簿の登録上限 |
+| `seats` | `MAX_SEATS` | 144 | グリッドの全座席 |
+| `StudentInput.tags` | タグの種類数 | 2 | UI はトグルで付け外しするため重複しない |
+| `ClassroomConfig.front_rows` / `back_rows` | `SEAT_MAX_ROWS` | 12 | 重複なし・1〜`num_rows` の行番号 |
+| `groups` | `MAX_SEATS` | 144 | 各班は1席以上 |
+| `GroupLayout.seat_ids` | `MAX_SEATS` | 144 | 1座席は1つの班にのみ属する |
+| `constraints.fixed` | N | 50 | UI は児童・生徒ごとに1件 |
+| `constraints.forbidden` | N(N−1) × 2 | 4900 | UI は (A, B, type) の順序付きの組で重複排除するため、(A, B) と (B, A) が共存でき、type が2種類 |
+| `constraints.seat_gender` | `MAX_SEATS` | 144 | UI は座席ごとに1件 |
+| `constraints.relative_fixed` | N × 8 | 400 | UI は基準の児童・生徒ごとに、中心を除く8方向に各1件 |
+| `constraints.leader_groups` | N | 50 | UI に件数の上限はない。実運用で児童・生徒数を超えるグループ数は想定しない |
+| `LeaderGroupConstraint.student_ids` | N | 50 | 2人以上、名簿の人数以下 |
+| `prev_assign` | N | 50 | UI は座席ごとに1件で、1人を複数の座席に割り当てられない |
+| `ScoreRequest.assignments` | N | 50 | ソルバ解（1人1件）を席交換したもの |
+| 児童・生徒 ID（`id` / `student_id*` / `student_ids` の要素） | 1〜2³¹−1 | — | UI は「既存 ID の最大値 + 1」を振り、削除しても詰めないため N を超えうる。clingo の32bit整数の上限 |
+| 座席 ID（`id` / `seat_id` / `seat_ids` の要素） | 1〜`MAX_SEATS` | 144 | UI は行優先の連番 `(row−1) × num_cols + col` |
+| `GroupLayout.group_id` | 1〜`MAX_SEATS` | 144 | 班の数以下 |
+| `LeaderGroupConstraint.group_id` | 0〜N−1 | 49 | UI は配列の添字を送る |
+
 ### SolveRequest
 
 | フィールド | 型 | 必須 | デフォルト | 説明 |
@@ -362,22 +392,22 @@ Pydantic による入力バリデーション失敗。
 | `students` | `StudentInput[]` | ✓ | — | 1〜`MAX_STUDENTS`人（既定50） |
 | `seats` | `SeatInput[]` | ✓ | — | 座席一覧（児童・生徒数以上必要） |
 | `classroom` | `ClassroomConfig` | ✓ | — | 教室設定 |
-| `groups` | `GroupLayout[]` | | `[]` | 班レイアウト |
+| `groups` | `GroupLayout[]` | | `[]` | 班レイアウト（最大 `MAX_SEATS` 件） |
 | `constraints` | `ConstraintConfig` | | `{}` | 各種制約 |
-| `prev_assign` | `PrevAssignment[]` | | `[]` | 前回座席情報 |
+| `prev_assign` | `PrevAssignment[]` | | `[]` | 前回座席情報（最大 N 件） |
 | `options` | `SolveOptions` | | デフォルト値 | 計算オプション |
 
 ### ScoreRequest
 
 | フィールド | 型 | 必須 | デフォルト | 説明 |
 |-----------|-----|------|-----------|------|
-| `assignments` | `AssignmentResult[]` | ✓ | — | 評価対象の配置（1件以上） |
+| `assignments` | `{student_id, seat_id}[]` | ✓ | — | 評価対象の配置（1〜N件） |
 | `students` | `StudentInput[]` | ✓ | — | |
 | `seats` | `SeatInput[]` | ✓ | — | |
 | `classroom` | `ClassroomConfig` | ✓ | — | |
-| `groups` | `GroupLayout[]` | | `[]` | |
+| `groups` | `GroupLayout[]` | | `[]` | 最大 `MAX_SEATS` 件 |
 | `constraints` | `ConstraintConfig` | | `{}` | |
-| `prev_assign` | `PrevAssignment[]` | | `[]` | |
+| `prev_assign` | `PrevAssignment[]` | | `[]` | 最大 N 件 |
 
 ### ValidateRequest
 
@@ -391,15 +421,15 @@ Pydantic による入力バリデーション失敗。
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
-| `id` | `int (≥1)` | ID |
+| `id` | `int (1〜2³¹−1)` | ID |
 | `gender` | `"male" \| "female"` | 性別 |
-| `tags` | `("front_preferred" \| "back_preferred")[]` | タグ |
+| `tags` | `("front_preferred" \| "back_preferred")[]` | タグ（最大2件） |
 
 ### SeatInput
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
-| `id` | `int (≥1)` | 座席ID |
+| `id` | `int (1〜MAX_SEATS)` | 座席ID |
 | `row` | `int (≥1)` | 行番号（1=黒板側） |
 | `col` | `int (≥1)` | 列番号（1=左端） |
 
@@ -409,18 +439,18 @@ Pydantic による入力バリデーション失敗。
 |-----------|-----|-----------|------|
 | `num_rows` | `int (1〜SEAT_MAX_ROWS)` | 必須 | 行数（上限の既定は12、環境変数で変更可能） |
 | `num_cols` | `int (1〜SEAT_MAX_COLS)` | 必須 | 列数（上限の既定は12、環境変数で変更可能） |
-| `front_rows` | `int[]` | `[1]` | 前列とみなす行番号リスト。空リストは「前側エリアなし」（front_preferred は対象外） |
-| `back_rows` | `int[] \| null` | `null` | 後列とみなす行番号リスト。`null`（省略）時は最終行を自動設定。空リストは「後側エリアなし」（back_preferred は対象外） |
+| `front_rows` | `int[]` | `[1]` | 前列とみなす行番号リスト（最大 `SEAT_MAX_ROWS` 件）。空リストは「前側エリアなし」（front_preferred は対象外） |
+| `back_rows` | `int[] \| null` | `null` | 後列とみなす行番号リスト（最大 `SEAT_MAX_ROWS` 件）。`null`（省略）時は最終行を自動設定。空リストは「後側エリアなし」（back_preferred は対象外） |
 
 ### ConstraintConfig
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
-| `fixed` | `FixedConstraint[]` | 座席固定（特定児童・生徒を特定座席に固定） |
-| `forbidden` | `ForbiddenConstraint[]` | 隣接禁止または同班禁止 |
-| `seat_gender` | `SeatGenderConstraint[]` | 座席への性別制限 |
-| `relative_fixed` | `RelativeFixedConstraint[]` | 相対位置での隣接固定 |
-| `leader_groups` | `LeaderGroupConstraint[]` | 班分散グループ（同一グループ内の児童・生徒同士は別班に分散） |
+| `fixed` | `FixedConstraint[]` | 座席固定（特定児童・生徒を特定座席に固定）。最大 N 件 |
+| `forbidden` | `ForbiddenConstraint[]` | 隣接禁止または同班禁止。最大 N(N−1)×2 件 |
+| `seat_gender` | `SeatGenderConstraint[]` | 座席への性別制限。最大 `MAX_SEATS` 件 |
+| `relative_fixed` | `RelativeFixedConstraint[]` | 相対位置での隣接固定。最大 N×8 件 |
+| `leader_groups` | `LeaderGroupConstraint[]` | 班分散グループ（同一グループ内の児童・生徒同士は別班に分散）。最大 N 件 |
 
 #### FixedConstraint
 ```json
@@ -454,8 +484,8 @@ Pydantic による入力バリデーション失敗。
 ```json
 {"group_id": 0, "student_ids": [1, 4, 7]}
 ```
-`group_id`: グループID（0始まり、整数 ≥ 0）。  
-`student_ids`: 同じ班に入れたくない児童・生徒のIDリスト（2人以上必須）。  
+`group_id`: グループID（0始まり、0〜N−1）。  
+`student_ids`: 同じ班に入れたくない児童・生徒のIDリスト（2〜N人）。  
 グループ内のメンバー同士は別々の班に分散配置される。  
 グループ人数が班数を超えると UNSAT になる。
 

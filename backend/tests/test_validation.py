@@ -97,7 +97,7 @@ class TestFixedConstraintValidation:
 
     def test_unknown_seat_id_in_fixed(self):
         constraints = {
-            "fixed": [{"student_id": 1, "seat_id": 999}],
+            "fixed": [{"student_id": 1, "seat_id": 99}],
             "forbidden": [],
             "seat_gender": [],
             "relative_fixed": [],
@@ -137,7 +137,7 @@ class TestFixedConstraintValidation:
     def test_multiple_warnings_accumulated(self):
         """存在しない student_id + seat_id → 2件以上の警告。"""
         constraints = {
-            "fixed": [{"student_id": 999, "seat_id": 888}],
+            "fixed": [{"student_id": 999, "seat_id": 88}],
             "forbidden": [],
             "seat_gender": [],
             "relative_fixed": [],
@@ -218,7 +218,7 @@ class TestSeatGenderValidation:
         constraints = {
             "fixed": [],
             "forbidden": [],
-            "seat_gender": [{"seat_id": 999, "allowed_gender": "female"}],
+            "seat_gender": [{"seat_id": 99, "allowed_gender": "female"}],
             "relative_fixed": [],
         }
         warnings = run_validation(_req(constraints))
@@ -461,7 +461,7 @@ class TestGenderCapacityValidation:
         constraints = {
             "fixed": [],
             "forbidden": [],
-            "seat_gender": [{"seat_id": 999, "allowed_gender": "female"}],
+            "seat_gender": [{"seat_id": 99, "allowed_gender": "female"}],
             "relative_fixed": [],
         }
         warnings = run_validation(_req(constraints))

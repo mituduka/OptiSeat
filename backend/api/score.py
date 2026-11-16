@@ -67,6 +67,12 @@ def compute_score(
         for _gsid in _seat_set:
             seat_to_group_seats[_gsid] = _seat_set
 
+    # 班ごとの座席集合（forbidden same_group / leader_groups で繰り返し使うため
+    # ループ内で毎回 set を作り直さないよう一度だけ構築する）
+    group_seat_sets: list[set[int]] = [
+        set(g["seat_ids"]) for g in request_data.get("groups", [])
+    ]
+
     classroom = request_data.get("classroom", {})
     front_rows = set(classroom.get("front_rows", [1]))
     # back_rows は None（未指定）なら最終行を自動設定、明示的な空リストは
@@ -286,8 +292,7 @@ def compute_score(
             if abs(row_a - row_b) <= 1 and abs(col_a - col_b) <= 1:
                 forbidden_violations += 1
         elif fb_type == "same_group":
-            for group in request_data.get("groups", []):
-                seat_ids = set(group["seat_ids"])
+            for seat_ids in group_seat_sets:
                 if seat_a in seat_ids and seat_b in seat_ids:
                     forbidden_violations += 1
                     break
@@ -302,8 +307,7 @@ def compute_score(
     leader_group_violations = 0
     for lg in request_data.get("constraints", {}).get("leader_groups", []):
         member_seats = [assign_map.get(sid) for sid in lg["student_ids"]]
-        for group in request_data.get("groups", []):
-            seat_ids = set(group["seat_ids"])
+        for seat_ids in group_seat_sets:
             members_in_group = [
                 s for s in member_seats if s is not None and s in seat_ids
             ]

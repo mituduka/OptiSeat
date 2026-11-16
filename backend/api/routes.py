@@ -208,12 +208,15 @@ async def solve(request: SolveRequest, raw_request: Request) -> SolveResponse:
 
 
 @router.post("/api/v1/score", response_model=ScoreResponse)
-async def score(request: ScoreRequest) -> ScoreResponse:
+def score(request: ScoreRequest) -> ScoreResponse:
     """
     座席配置のスコア（制約違反数）を計算して返す
 
     ソルバを再実行せず、配置された座席に対して制約違反カウントのみ行う。
     手動調整後のペナルティ再計算に使用する。
+
+    同期の CPU 処理なので async にせず通常の def とし、FastAPI の
+    スレッドプールで実行させる（イベントループを止めないため）。
     """
     data = request.model_dump()
     assignments = [
@@ -231,9 +234,11 @@ async def score(request: ScoreRequest) -> ScoreResponse:
 
 
 @router.post("/api/v1/validate", response_model=ValidateResponse)
-async def validate(request: ValidateRequest) -> ValidateResponse:
+def validate(request: ValidateRequest) -> ValidateResponse:
     """
     制約の整合性チェック（ソルバ実行なし）
+
+    /score と同じく同期の def とし、スレッドプールで実行させる。
 
     チェック内容:
       - fixed/forbidden の student_id が students に存在するか

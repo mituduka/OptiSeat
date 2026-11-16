@@ -7,7 +7,7 @@ SolveRequest / SolveResponse および制約バリデーション専用スキー
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import AfterValidator, BaseModel, Field, model_validator
 
@@ -20,6 +20,57 @@ from .config import (
     SOLVER_TIMEOUT_DEFAULT,
     SOLVER_TIMEOUT_MAX,
 )
+
+# ---------------------------------------------------------------------------
+# 入力サイズ上限
+# ---------------------------------------------------------------------------
+#
+# すべて config.py の MAX_STUDENTS / SEAT_MAX_ROWS / SEAT_MAX_COLS から導出する。
+# 巨大な入力 1 件でスコア計算・ファクト生成・grounding（いずれもソルバの
+# タイムアウト対象外）が CPU を長時間占有するのを防ぐ。値は frontend が正当な
+# 利用で送りうる最大件数以上になるよう決めている（根拠は各定数のコメント）。
+
+# 教室の最大座席数。frontend の座席 ID は行優先の連番
+# （(row-1)*numCols+col、lib/seats.ts の generateSeats / coordsToSeatId）なので
+# 座席 ID の上限も兼ねる。
+MAX_SEATS: int = SEAT_MAX_ROWS * SEAT_MAX_COLS
+
+# 児童・生徒 ID の上限。frontend は新規追加時に「既存 ID の最大値 + 1」を振り、
+# 削除しても ID を詰めない（さらに名簿は localStorage に永続化される）ため、
+# ID は MAX_STUDENTS を超えて増え続けうる。インポートでも任意の数値を受け付ける。
+# したがって件数由来の上限は付けられず、ASP ファクトとして clingo に渡せる
+# 32bit 符号付き整数の上限を値域とする（これを超えると clingo.Number が
+# OverflowError を送出する）。
+STUDENT_ID_MAX: int = 2**31 - 1
+
+ForbiddenType = Literal["adjacent8", "same_group"]
+
+# forbidden の最大件数。frontend（lib/store.ts の addForbidden）は
+# (studentIdA, studentIdB, type) の順序付きの組で重複排除するため、
+# (1,2) と (2,1) が共存でき、type も 2 種類ある。
+# よって最大 N(N-1) × type 数（N=MAX_STUDENTS）。
+MAX_FORBIDDEN: int = (
+    MAX_STUDENTS * (MAX_STUDENTS - 1) * len(get_args(ForbiddenType))
+)
+
+# relative_fixed のオフセットは各軸 -1〜1。中心 (0,0) を除いた 3×3−1 = 8 方向。
+RELATIVE_OFFSET_MAX: int = 1
+RELATIVE_OFFSETS_PER_STUDENT: int = (2 * RELATIVE_OFFSET_MAX + 1) ** 2 - 1
+
+# relative_fixed の最大件数。frontend（setRelativeFixed）は基準の児童・生徒 A
+# ごとに制約を丸ごと置き換え、A 1 人あたりオフセット 1 方向に 1 件しか持てない。
+MAX_RELATIVE_FIXED: int = MAX_STUDENTS * RELATIVE_OFFSETS_PER_STUDENT
+
+# leader_groups（班分散グループ）の最大件数。frontend の addLeaderGroup は
+# 件数に上限を設けておらず、同じ児童・生徒が複数グループに属することもできる
+# ため、UI 上の厳密な最大値は存在しない。実運用で児童・生徒数を超える数の
+# グループを作る場面は考えにくいので MAX_STUDENTS とする。
+# （H-10 の grounding はグループ数 × メンバー対の数 × 班数 に比例する）
+MAX_LEADER_GROUPS: int = MAX_STUDENTS
+
+StudentId = Annotated[int, Field(ge=1, le=STUDENT_ID_MAX)]
+SeatId = Annotated[int, Field(ge=1, le=MAX_SEATS)]
+
 
 # ---------------------------------------------------------------------------
 # 入力スキーマ（共通部品）
@@ -37,13 +88,14 @@ class TagType(str, Enum):
 
 
 class StudentInput(BaseModel):
-    id: int = Field(..., ge=1, description="出席番号（1以上）")
+    id: StudentId = Field(..., description="出席番号（1以上）")
     gender: Gender
-    tags: list[TagType] = Field(default_factory=list)
+    # frontend はタグをトグルで付け外しするため重複しない（最大でタグの種類数）
+    tags: list[TagType] = Field(default_factory=list, max_length=len(TagType))
 
 
 class SeatInput(BaseModel):
-    id: int = Field(..., ge=1)
+    id: SeatId
     row: int = Field(..., ge=1, le=SEAT_MAX_ROWS)
     col: int = Field(..., ge=1, le=SEAT_MAX_COLS)
 
@@ -87,7 +139,7 @@ StudentList = Annotated[
 
 SeatList = Annotated[
     list[SeatInput],
-    Field(min_length=1, max_length=SEAT_MAX_ROWS * SEAT_MAX_COLS),
+    Field(min_length=1, max_length=MAX_SEATS),
     AfterValidator(_validate_unique_seats),
 ]
 
@@ -95,12 +147,16 @@ SeatList = Annotated[
 class SeatConfig(BaseModel):
     num_rows: int = Field(..., ge=1, le=SEAT_MAX_ROWS)
     num_cols: int = Field(..., ge=1, le=SEAT_MAX_COLS)
+    # front_rows / back_rows は validate_row_zones で重複なし・1〜num_rows に
+    # 収まることを検証するため、正当な入力は最大で SEAT_MAX_ROWS 件
     front_rows: list[int] = Field(
         default_factory=lambda: [1],
+        max_length=SEAT_MAX_ROWS,
         description="前列とする行番号リスト（デフォルト: [1]）",
     )
     back_rows: list[int] | None = Field(
         default=None,
+        max_length=SEAT_MAX_ROWS,
         description=(
             "後列とする行番号リスト"
             "（省略/null 時は最終行を自動設定、空リストは後側エリアなし）"
@@ -131,14 +187,14 @@ class SeatConfig(BaseModel):
 
 
 class FixedConstraint(BaseModel):
-    student_id: int = Field(..., ge=1)
-    seat_id: int = Field(..., ge=1)
+    student_id: StudentId
+    seat_id: SeatId
 
 
 class ForbiddenConstraint(BaseModel):
-    student_id_a: int = Field(..., ge=1)
-    student_id_b: int = Field(..., ge=1)
-    type: Literal["adjacent8", "same_group"] = "adjacent8"
+    student_id_a: StudentId
+    student_id_b: StudentId
+    type: ForbiddenType = "adjacent8"
 
     @model_validator(mode="after")
     def validate_different_students(self) -> ForbiddenConstraint:
@@ -148,15 +204,25 @@ class ForbiddenConstraint(BaseModel):
 
 
 class SeatGenderConstraint(BaseModel):
-    seat_id: int = Field(..., ge=1)
+    seat_id: SeatId
     allowed_gender: Literal["male", "female"]
 
 
 class RelativeFixedConstraint(BaseModel):
-    student_id_a: int = Field(..., ge=1, description="基準となる児童・生徒（中心）")
-    student_id_b: int = Field(..., ge=1, description="相対配置する児童・生徒")
-    d_row: int = Field(..., ge=-1, le=1, description="行オフセット")
-    d_col: int = Field(..., ge=-1, le=1, description="列オフセット")
+    student_id_a: StudentId = Field(..., description="基準となる児童・生徒（中心）")
+    student_id_b: StudentId = Field(..., description="相対配置する児童・生徒")
+    d_row: int = Field(
+        ...,
+        ge=-RELATIVE_OFFSET_MAX,
+        le=RELATIVE_OFFSET_MAX,
+        description="行オフセット",
+    )
+    d_col: int = Field(
+        ...,
+        ge=-RELATIVE_OFFSET_MAX,
+        le=RELATIVE_OFFSET_MAX,
+        description="列オフセット",
+    )
 
     @model_validator(mode="after")
     def validate_not_center(self) -> RelativeFixedConstraint:
@@ -168,23 +234,53 @@ class RelativeFixedConstraint(BaseModel):
 
 
 class LeaderGroupConstraint(BaseModel):
-    group_id: int = Field(..., ge=0, description="班分散グループID（0始まり）")
-    student_ids: list[int] = Field(
-        ..., min_length=2, description="グループに属する児童・生徒IDリスト（2人以上）"
+    # frontend（leaderGroupsToApi）は配列の添字を group_id として送る
+    group_id: int = Field(
+        ...,
+        ge=0,
+        le=MAX_LEADER_GROUPS - 1,
+        description="班分散グループID（0始まり）",
+    )
+    # frontend はチェックボックスで選ぶため重複せず、名簿の人数以下
+    student_ids: list[StudentId] = Field(
+        ...,
+        min_length=2,
+        max_length=MAX_STUDENTS,
+        description="グループに属する児童・生徒IDリスト（2人以上）",
     )
 
 
 class ConstraintConfig(BaseModel):
-    fixed: list[FixedConstraint] = Field(default_factory=list)
-    forbidden: list[ForbiddenConstraint] = Field(default_factory=list)
-    seat_gender: list[SeatGenderConstraint] = Field(default_factory=list)
-    relative_fixed: list[RelativeFixedConstraint] = Field(default_factory=list)
-    leader_groups: list[LeaderGroupConstraint] = Field(default_factory=list)
+    # fixed: frontend の addFixed は児童・生徒ごとに 1 件へ置き換える → 最大 N 件
+    fixed: list[FixedConstraint] = Field(
+        default_factory=list, max_length=MAX_STUDENTS
+    )
+    forbidden: list[ForbiddenConstraint] = Field(
+        default_factory=list, max_length=MAX_FORBIDDEN
+    )
+    # seat_gender: frontend の addSeatGender は座席ごとに 1 件へ置き換える
+    seat_gender: list[SeatGenderConstraint] = Field(
+        default_factory=list, max_length=MAX_SEATS
+    )
+    relative_fixed: list[RelativeFixedConstraint] = Field(
+        default_factory=list, max_length=MAX_RELATIVE_FIXED
+    )
+    leader_groups: list[LeaderGroupConstraint] = Field(
+        default_factory=list, max_length=MAX_LEADER_GROUPS
+    )
 
 
 class PrevAssignment(BaseModel):
-    student_id: int = Field(..., ge=1)
-    seat_id: int = Field(..., ge=1)
+    student_id: StudentId
+    seat_id: SeatId
+
+
+# prev_assign の最大件数。frontend の前回席入力は座席ごとに 1 件で、
+# 他の座席に割り当て済みの児童・生徒は選択肢から除外される（1 人 1 件）。
+# インポート時も、エクスポートされた確定配置（児童・生徒数以下）を読み込む。
+PrevAssignList = Annotated[
+    list[PrevAssignment], Field(max_length=MAX_STUDENTS)
+]
 
 
 class PrevSeatOptions(BaseModel):
@@ -223,10 +319,20 @@ class SolveOptions(BaseModel):
 
 
 class GroupLayout(BaseModel):
-    group_id: int = Field(..., ge=1, description="班ID（1始まり）")
-    seat_ids: list[int] = Field(
-        ..., min_length=1, description="班に属する座席IDのリスト"
+    # 各班は 1 席以上を持つため、班の数・班 ID とも座席数以下
+    # （frontend の班数ステッパーは 1〜10 だが、その値は backend の設定ではない）
+    group_id: int = Field(..., ge=1, le=MAX_SEATS, description="班ID（1始まり）")
+    # frontend は座席を班に追加するとき他の班から外し、グリッド外の座席を
+    # 除いて送るため、1 班の座席数は教室の座席数以下
+    seat_ids: list[SeatId] = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_SEATS,
+        description="班に属する座席IDのリスト",
     )
+
+
+GroupList = Annotated[list[GroupLayout], Field(max_length=MAX_SEATS)]
 
 
 # ---------------------------------------------------------------------------
@@ -238,11 +344,11 @@ class SolveRequest(BaseModel):
     students: StudentList
     seats: SeatList
     classroom: SeatConfig
-    groups: list[GroupLayout] = Field(
+    groups: GroupList = Field(
         default_factory=list, description="班レイアウト定義（省略可）"
     )
     constraints: ConstraintConfig = Field(default_factory=ConstraintConfig)
-    prev_assign: list[PrevAssignment] = Field(default_factory=list)
+    prev_assign: PrevAssignList = Field(default_factory=list)
     options: SolveOptions = Field(default_factory=SolveOptions)
 
     @model_validator(mode="after")
@@ -344,14 +450,25 @@ class SolverErrorResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class AssignmentInput(BaseModel):
+    """ScoreRequest の配置 1 件（レスポンス用の AssignmentResult とは分ける）。"""
+
+    student_id: StudentId
+    seat_id: SeatId
+
+
 class ScoreRequest(BaseModel):
-    assignments: list[AssignmentResult] = Field(..., min_length=1)
+    # frontend はソルバ解（児童・生徒 1 人 1 件）を席交換するだけなので
+    # 件数は児童・生徒数以下
+    assignments: list[AssignmentInput] = Field(
+        ..., min_length=1, max_length=MAX_STUDENTS
+    )
     students: StudentList
     seats: SeatList
     classroom: SeatConfig
-    groups: list[GroupLayout] = Field(default_factory=list)
+    groups: GroupList = Field(default_factory=list)
     constraints: ConstraintConfig = Field(default_factory=ConstraintConfig)
-    prev_assign: list[PrevAssignment] = Field(default_factory=list)
+    prev_assign: PrevAssignList = Field(default_factory=list)
 
 
 class ScoreResponse(BaseModel):
