@@ -244,9 +244,16 @@ export interface Solution {
   assignments: AssignmentResult[]
 }
 
+export interface ConflictingConstraint {
+  type: string
+  description: string
+}
+
+/** 200 応答の `error`（解なし: code="UNSATISFIABLE"） */
 export interface SolveError {
   code: string
   message: string
+  conflicting_constraints?: ConflictingConstraint[]
 }
 
 export type SolveStatus = 'ok' | 'unsatisfiable' | 'timeout'
@@ -256,6 +263,24 @@ export interface SolveResponse {
   elapsed_ms: number
   solutions: Solution[]
   error: SolveError | null
+}
+
+/** ソルバ内部エラー（HTTP 500）の `detail`。code は "SOLVER_ERROR" */
+export interface ApiErrorDetail {
+  code: string
+  message: string
+}
+
+/** FastAPI の入力バリデーションエラー（HTTP 422）の `detail` 要素 */
+export interface ValidationErrorItem {
+  loc: (string | number)[]
+  msg: string
+  type: string
+}
+
+/** エラー応答（4xx / 5xx）のボディ */
+export interface ApiErrorBody {
+  detail: ApiErrorDetail | ValidationErrorItem[] | string
 }
 
 // ---------------------------------------------------------------------------
