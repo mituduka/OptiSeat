@@ -51,7 +51,9 @@ front_preferred_dist(S, D) :-
     assign(S, R),
     front_dist(R, D).
 
-:~ front_preferred_dist(S, D), D > 0. [D@5, S]
+% タプル先頭の定数 front は制約種別の識別子。同一優先度の弱制約は (重み, 項...) の
+% 集合として扱われるため、種別を区別しないと S-02 の [D@5, back, S] と潰れる（Issue #58 と同じ仕組み）。
+:~ front_preferred_dist(S, D), D > 0. [D@5, front, S]
 
 % 探索誘導: front_preferred の児童・生徒を前列座席に優先的に配置する（#heuristic）
 %
@@ -116,7 +118,8 @@ back_preferred_dist(S, D) :-
     assign(S, R),
     back_dist(R, D).
 
-:~ back_preferred_dist(S, D), D > 0. [D@5, S]
+% back は S-01 の front と区別する識別子（両タグ・同距離の児童・生徒で衝突させない）
+:~ back_preferred_dist(S, D), D > 0. [D@5, back, S]
 
 % 探索誘導: back_preferred の児童・生徒を後列座席に優先的に配置する（#heuristic）
 %
@@ -140,8 +143,10 @@ back_preferred_dist(S, D) :-
 % 班に誰か1人でも配置されているか（空班除外用）
 group_occupied(G) :- in_group(_, G).
 
-:~ opt_gender_balance, group_occupied(G), not group_has_male(G).   [1@4, G]
-:~ opt_gender_balance, group_occupied(G), not group_has_female(G). [1@4, G]
+% no_male / no_female は制約種別の識別子。班 ID G と S-04 の生徒 ID S が同じ数字でも
+% 同一タプルに潰れないよう、@4 の弱制約は種別ごとに異なる定数を持たせる。
+:~ opt_gender_balance, group_occupied(G), not group_has_male(G).   [1@4, no_male, G]
+:~ opt_gender_balance, group_occupied(G), not group_has_female(G). [1@4, no_female, G]
 
 
 %-----------------------------------------------------------------------------
@@ -186,7 +191,7 @@ loneliness_peer_same_gender(S) :-
 :~ opt_loneliness,
    student(S, _),
    not loneliness_peer_same_gender(S).
-   [1@4, S]
+   [1@4, lonely, S]
 
 
 %-----------------------------------------------------------------------------
@@ -206,7 +211,7 @@ loneliness_peer_same_gender(S) :-
 :~ opt_prev_seat_differ,
    prev_assign(S, R),
    assign(S, R).
-   [1@1, S]
+   [1@1, prev_seat, S]
 
 
 %-----------------------------------------------------------------------------
@@ -240,7 +245,7 @@ same_group_composition(Gnew, Gprev) :-
    seat(R1, Row, Col1),
    seat(R2, Row, Col2),
    |Col1 - Col2| = 1.
-   [1@3, S1, S2]
+   [1@3, prev_neighbor, S1, S2]
 
 
 %-----------------------------------------------------------------------------
@@ -251,4 +256,4 @@ same_group_composition(Gnew, Gprev) :-
 
 :~ opt_prev_group_differ,
    same_group_composition(Gnew, Gprev).
-   [1@2, Gnew, Gprev]
+   [1@2, prev_group, Gnew, Gprev]
