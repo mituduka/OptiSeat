@@ -50,6 +50,57 @@ describe('students アクション', () => {
     expect(useStore.getState().students[0].name).toBe('山田 太郎') // 変わらない
   })
 
+  describe('updateStudent とパイプライン', () => {
+    const FULL_PIPELINE = {
+      solveResult: DUMMY_SOLVE_RESULT,
+      adoptedAssignments: DUMMY_ASSIGNMENTS,
+      adjustingAssignments: DUMMY_ASSIGNMENTS,
+      finalizedAssignments: DUMMY_ASSIGNMENTS,
+    }
+
+    beforeEach(() => {
+      useStore.getState().addStudent({ id: 1, name: '山田 太郎', gender: 'male', tags: ['front_preferred', 'back_preferred'] })
+      useStore.setState(FULL_PIPELINE)
+    })
+
+    it('氏名だけを変えたとき（性別・タグは同値で渡す）パイプラインは消えない', () => {
+      // StudentTable の saveEditing は常に { name, gender, tags } を渡す
+      useStore.getState().updateStudent(1, { name: '山田 次郎', gender: 'male', tags: ['front_preferred', 'back_preferred'] })
+      const state = useStore.getState()
+      expect(state.students[0].name).toBe('山田 次郎')
+      expect(state.solveResult).toEqual(DUMMY_SOLVE_RESULT)
+      expect(state.adoptedAssignments).toEqual(DUMMY_ASSIGNMENTS)
+      expect(state.adjustingAssignments).toEqual(DUMMY_ASSIGNMENTS)
+      expect(state.finalizedAssignments).toEqual(DUMMY_ASSIGNMENTS)
+    })
+
+    it('タグの並び順だけが変わってもパイプラインは消えない', () => {
+      useStore.getState().updateStudent(1, { tags: ['back_preferred', 'front_preferred'] })
+      expect(useStore.getState().finalizedAssignments).toEqual(DUMMY_ASSIGNMENTS)
+    })
+
+    it('性別が変わるとパイプラインがクリアされる', () => {
+      useStore.getState().updateStudent(1, { name: '山田 太郎', gender: 'female', tags: ['front_preferred', 'back_preferred'] })
+      const state = useStore.getState()
+      expect(state.solveResult).toBeNull()
+      expect(state.adoptedAssignments).toBeNull()
+      expect(state.adjustingAssignments).toBeNull()
+      expect(state.finalizedAssignments).toBeNull()
+    })
+
+    it('タグの内容が変わるとパイプラインがクリアされる', () => {
+      useStore.getState().updateStudent(1, { name: '山田 太郎', gender: 'male', tags: ['front_preferred'] })
+      const state = useStore.getState()
+      expect(state.solveResult).toBeNull()
+      expect(state.finalizedAssignments).toBeNull()
+    })
+
+    it('存在しない ID を更新してもパイプラインは消えない', () => {
+      useStore.getState().updateStudent(999, { gender: 'female' })
+      expect(useStore.getState().finalizedAssignments).toEqual(DUMMY_ASSIGNMENTS)
+    })
+  })
+
   it('setStudents で全件置換される', () => {
     useStore.getState().addStudent({ id: 1, name: '山田 太郎', gender: 'male', tags: [] })
     useStore.getState().setStudents([
